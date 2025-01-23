@@ -15,7 +15,7 @@ function App() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Learn React with us and we will see how git merge works
+          Learn React with us in the second branch
         </a>
       </header>
     </div>
