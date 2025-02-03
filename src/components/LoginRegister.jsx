@@ -1,13 +1,12 @@
 import React from 'react'
 import { useState } from 'react'
-import './Login_Register.css'
+import '../resources/css/LoginRegister.css'
 
-function Login_Register() {
+function LoginRegister() {
     const [activeForm, setActiveForm] = useState('login')
 
     return (
         <section className="forms-section">
-            <h1 className="section-title">Login & Signup Forms</h1>
             <div className="forms">
                 {/* Login Form */}
                 <div
@@ -105,4 +104,4 @@ function Login_Register() {
     )
 }
 
-export default Login_Register
+export default LoginRegister

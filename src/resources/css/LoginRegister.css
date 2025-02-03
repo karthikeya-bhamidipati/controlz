@@ -18,15 +18,9 @@ body {
     align-items: center;
 }
 
-.section-title {
-    font-size: 32px;
-    letter-spacing: 1px;
-    color: #fff;
-}
-
 .forms {
     display: flex;
-    align-items: flex-start;
+    justify-content: center;
     margin-top: 30px;
 }
 
@@ -77,12 +71,12 @@ body {
 
 .form-wrapper.is-active .switcher-login {
     color: #fff;
-    transform: translateX(90px);
+    transform: translateY(90px);
 }
 
 .form-wrapper.is-active .switcher-signup {
     color: #fff;
-    transform: translateX(-90px);
+    transform: translateY(-90px);
 }
 
 .underline {
