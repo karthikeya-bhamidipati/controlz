@@ -245,7 +245,9 @@ const LoginRegister = () => {
                                     p: 4,
                                     borderRadius: '10px',
                                     bgcolor: 'background.paper',
-                                    boxShadow: '0px 10px 30px rgba(0,0,0,0.2)',
+                                    boxShadow: darkMode
+                                        ? '5px 15px 30px rgba(222, 222, 222, 0.2)'
+                                        : '5px 15px 30px rgba(0, 0, 0, 0.2)',
                                     width: '100%',
                                     minWidth: { xs: '90%', sm: '400px' },
                                 }}
