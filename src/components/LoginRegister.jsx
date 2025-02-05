@@ -15,6 +15,8 @@ import { Brightness4, Brightness7 } from '@mui/icons-material'
 import axios from 'axios'
 import { ToastContainer, toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
+import ControlCameraIcon from '@mui/icons-material/ControlCamera'
+import { motion } from 'framer-motion'
 
 // Auth Component
 const LoginRegister = () => {
@@ -86,13 +88,16 @@ const LoginRegister = () => {
     }
 
     // Toast options for showing error messages
-    const toastOptions = {
-        position: 'bottom-left',
-        autoClose: 5000,
-        pauseOnHover: true,
-        draggable: true,
-        theme: darkMode ? 'dark' : 'light',
-    }
+    const toastOptions = useMemo(
+        () => ({
+            position: 'bottom-left',
+            autoClose: 5000,
+            pauseOnHover: true,
+            draggable: true,
+            theme: darkMode ? 'dark' : 'light',
+        }),
+        [darkMode]
+    )
 
     return (
         <ThemeProvider theme={theme}>
@@ -120,6 +125,7 @@ const LoginRegister = () => {
                     }}
                     onClick={() => setDarkMode(!darkMode)}
                     color="inherit"
+                    aria-label="Toggle Dark Mode"
                 >
                     {darkMode ? <Brightness7 /> : <Brightness4 />}
                 </IconButton>
@@ -136,13 +142,28 @@ const LoginRegister = () => {
                     }}
                 >
                     {/* Left Side: Name */}
-                    <Box sx={{ flex: 1, textAlign: 'center' }}>
+                    <Box
+                        sx={{
+                            flex: 1,
+                            textAlign: 'center',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <ControlCameraIcon
+                            sx={{
+                                fontSize: '10rem',
+                                color: 'orange',
+                            }}
+                        />
                         <Typography
                             variant="h2"
                             fontWeight="bold"
                             sx={{
                                 color: 'text.primary',
-                                fontSize: { xs: '2rem', md: '3rem' },
+                                fontSize: { xs: '0rem', md: '3rem' },
+                                display: { xs: 'none', md: 'block' },
                             }}
                         >
                             CONTRLZ
@@ -177,6 +198,7 @@ const LoginRegister = () => {
                                     minWidth: '120px',
                                 }}
                                 onClick={() => setActiveForm('login')}
+                                aria-pressed={activeForm === 'login'}
                             >
                                 Login
                             </Button>
@@ -195,6 +217,7 @@ const LoginRegister = () => {
                                     minWidth: '120px',
                                 }}
                                 onClick={() => setActiveForm('signup')}
+                                aria-pressed={activeForm === 'signup'}
                             >
                                 Sign Up
                             </Button>
@@ -202,38 +225,29 @@ const LoginRegister = () => {
 
                         {/* Form Container */}
                         <Box
-                            sx={{
-                                position: 'relative',
-                                width: '100%',
-                                maxWidth: 400,
-                                minHeight: 400,
-                                display: 'flex',
-                                justifyContent: 'center',
-                                maxHeight: '100%', // Ensuring the container doesn't exceed available space
+                            component={motion.div}
+                            key={activeForm}
+                            initial={{
+                                opacity: 0,
+                                x: activeForm === 'login' ? -20 : 20,
                             }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{
+                                opacity: 0,
+                                x: activeForm === 'login' ? 20 : -20,
+                            }}
+                            transition={{ duration: 0.5 }}
+                            sx={{ width: '100%', maxWidth: 400 }}
                         >
-                            {/* Login Form */}
                             <Paper
                                 elevation={8}
                                 sx={{
-                                    position: 'absolute',
-                                    width: '100%',
-                                    overflow: 'hidden',
                                     p: 4,
                                     borderRadius: '10px',
                                     bgcolor: 'background.paper',
                                     boxShadow: '0px 10px 30px rgba(0,0,0,0.2)',
-                                    transform:
-                                        activeForm === 'login'
-                                            ? 'translateX(0)'
-                                            : 'translateX(-50%)',
-                                    transition: 'transform 0.3s ease-out',
-                                    opacity: activeForm === 'login' ? 1 : 0,
+                                    width: '100%',
                                     minWidth: { xs: '90%', sm: '400px' },
-                                    maxHeight: {
-                                        xs: 'calc(100vh - 100px)',
-                                        sm: 'calc(100vh - 120px)',
-                                    }, // Prevent overflow on small screens
                                 }}
                             >
                                 <Typography
@@ -241,130 +255,122 @@ const LoginRegister = () => {
                                     mb={2}
                                     fontWeight="bold"
                                 >
-                                    Welcome Back!
+                                    {activeForm === 'login'
+                                        ? 'Welcome Back!'
+                                        : 'Create an Account'}
                                 </Typography>
-                                <TextField
-                                    fullWidth
-                                    label="Email"
-                                    type="email"
-                                    margin="normal"
-                                    name="email"
-                                    value={loginData.email}
-                                    onChange={(e) => handleChange(e, 'login')}
-                                    sx={{ mb: 2 }}
-                                />
-                                <TextField
-                                    fullWidth
-                                    label="Password"
-                                    type="password"
-                                    margin="normal"
-                                    name="password"
-                                    value={loginData.password}
-                                    onChange={(e) => handleChange(e, 'login')}
-                                    sx={{ mb: 2 }}
-                                />
-                                <Button
-                                    fullWidth
-                                    variant="contained"
-                                    color="primary"
-                                    sx={{
-                                        mt: 2,
-                                        py: 1.2,
-                                        fontSize: '1rem',
-                                        borderRadius: '20px',
-                                    }}
-                                    onClick={validateLogin}
-                                    disabled={loading}
-                                >
-                                    {loading ? (
-                                        <CircularProgress
-                                            size={24}
-                                            color="inherit"
-                                        />
-                                    ) : (
-                                        'Login'
-                                    )}
-                                </Button>
-                            </Paper>
 
-                            {/* Signup Form */}
-                            <Paper
-                                elevation={8}
-                                sx={{
-                                    position: 'absolute',
-                                    width: '100%',
-                                    p: 4,
-                                    borderRadius: '10px',
-                                    bgcolor: 'background.paper',
-                                    boxShadow: '0px 10px 30px rgba(0,0,0,0.2)',
-                                    transform:
-                                        activeForm === 'signup'
-                                            ? 'translateX(0)'
-                                            : 'translateX(50%)',
-                                    transition: 'transform 0.3s ease-out',
-                                    opacity: activeForm === 'signup' ? 1 : 0,
-                                    minWidth: { xs: '90%', sm: '400px' },
-                                }}
-                            >
-                                <Typography
-                                    variant="h6"
-                                    mb={2}
-                                    fontWeight="bold"
-                                >
-                                    Create an Account
-                                </Typography>
-                                <TextField
-                                    fullWidth
-                                    label="Username"
-                                    type="text"
-                                    margin="normal"
-                                    name="username"
-                                    value={signupData.username}
-                                    onChange={(e) => handleChange(e, 'signup')}
-                                    sx={{ mb: 2 }}
-                                />
-                                <TextField
-                                    fullWidth
-                                    label="Email"
-                                    type="email"
-                                    margin="normal"
-                                    name="email"
-                                    value={signupData.email}
-                                    onChange={(e) => handleChange(e, 'signup')}
-                                    sx={{ mb: 2 }}
-                                />
-                                <TextField
-                                    fullWidth
-                                    label="Password"
-                                    type="password"
-                                    margin="normal"
-                                    name="password"
-                                    value={signupData.password}
-                                    onChange={(e) => handleChange(e, 'signup')}
-                                    sx={{ mb: 2 }}
-                                />
-                                <Button
-                                    fullWidth
-                                    variant="contained"
-                                    color="secondary"
-                                    sx={{
-                                        mt: 2,
-                                        py: 1.2,
-                                        fontSize: '1rem',
-                                        borderRadius: '20px',
-                                    }}
-                                    onClick={validateSignup}
-                                    disabled={loading}
-                                >
-                                    {loading ? (
-                                        <CircularProgress
-                                            size={24}
-                                            color="inherit"
+                                {activeForm === 'login' ? (
+                                    <>
+                                        <TextField
+                                            fullWidth
+                                            label="Email"
+                                            type="email"
+                                            margin="normal"
+                                            name="email"
+                                            value={loginData.email}
+                                            onChange={(e) =>
+                                                handleChange(e, 'login')
+                                            }
+                                            sx={{ mb: 2 }}
                                         />
-                                    ) : (
-                                        'Sign Up'
-                                    )}
-                                </Button>
+                                        <TextField
+                                            fullWidth
+                                            label="Password"
+                                            type="password"
+                                            margin="normal"
+                                            name="password"
+                                            value={loginData.password}
+                                            onChange={(e) =>
+                                                handleChange(e, 'login')
+                                            }
+                                            sx={{ mb: 2 }}
+                                        />
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            color="primary"
+                                            sx={{
+                                                mt: 2,
+                                                py: 1.2,
+                                                fontSize: '1rem',
+                                                borderRadius: '20px',
+                                            }}
+                                            onClick={validateLogin}
+                                            disabled={loading}
+                                        >
+                                            {loading ? (
+                                                <CircularProgress
+                                                    size={24}
+                                                    color="inherit"
+                                                />
+                                            ) : (
+                                                'Login'
+                                            )}
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <TextField
+                                            fullWidth
+                                            label="Username"
+                                            type="text"
+                                            margin="normal"
+                                            name="username"
+                                            value={signupData.username}
+                                            onChange={(e) =>
+                                                handleChange(e, 'signup')
+                                            }
+                                            sx={{ mb: 2 }}
+                                        />
+                                        <TextField
+                                            fullWidth
+                                            label="Email"
+                                            type="email"
+                                            margin="normal"
+                                            name="email"
+                                            value={signupData.email}
+                                            onChange={(e) =>
+                                                handleChange(e, 'signup')
+                                            }
+                                            sx={{ mb: 2 }}
+                                        />
+                                        <TextField
+                                            fullWidth
+                                            label="Password"
+                                            type="password"
+                                            margin="normal"
+                                            name="password"
+                                            value={signupData.password}
+                                            onChange={(e) =>
+                                                handleChange(e, 'signup')
+                                            }
+                                            sx={{ mb: 2 }}
+                                        />
+                                        <Button
+                                            fullWidth
+                                            variant="contained"
+                                            color="secondary"
+                                            sx={{
+                                                mt: 2,
+                                                py: 1.2,
+                                                fontSize: '1rem',
+                                                borderRadius: '20px',
+                                            }}
+                                            onClick={validateSignup}
+                                            disabled={loading}
+                                        >
+                                            {loading ? (
+                                                <CircularProgress
+                                                    size={24}
+                                                    color="inherit"
+                                                />
+                                            ) : (
+                                                'Sign Up'
+                                            )}
+                                        </Button>
+                                    </>
+                                )}
                             </Paper>
                         </Box>
                     </Box>
