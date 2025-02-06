@@ -6,13 +6,11 @@ import { ToastContainer } from 'react-toastify'
 import { DarkModeProvider, useDarkMode } from './context/DarkModeContext'
 import 'react-toastify/dist/ReactToastify.css'
 
-// Component for App Content
 function AppContent() {
     const { darkMode, setDarkMode } = useDarkMode()
 
     return (
         <>
-            {/* Dark Mode Toggle Button */}
             <IconButton
                 sx={{
                     position: 'absolute',
@@ -29,7 +27,6 @@ function AppContent() {
 
             <ToastContainer />
 
-            {/* Routing */}
             <BrowserRouter>
                 <Routes>
                     <Route path="/" element={<LoginRegister />} />
@@ -39,7 +36,6 @@ function AppContent() {
     )
 }
 
-// Wrapping App with DarkModeProvider
 function App() {
     return (
         <DarkModeProvider>

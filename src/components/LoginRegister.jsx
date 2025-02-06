@@ -14,18 +14,19 @@ import ControlCameraIcon from '@mui/icons-material/ControlCamera'
 import { motion } from 'framer-motion'
 import { useDarkMode } from '../context/DarkModeContext'
 
-// Auth Component
 const LoginRegister = () => {
     const [activeForm, setActiveForm] = useState('login')
+
     const { darkMode } = useDarkMode()
 
-    // State for form data and errors
     const [loginData, setLoginData] = useState({ email: '', password: '' })
+
     const [signupData, setSignupData] = useState({
         username: '',
         email: '',
         password: '',
     })
+
     const [loading, setLoading] = useState(false)
 
     const toastOptions = {
@@ -36,7 +37,6 @@ const LoginRegister = () => {
         theme: darkMode ? 'dark' : 'light',
     }
 
-    // Handle form field change
     const handleChange = (e, form) => {
         const { name, value } = e.target
         if (form === 'login') {
@@ -46,33 +46,29 @@ const LoginRegister = () => {
         }
     }
 
-    // API call function for login
     const validateLogin = async () => {
         setLoading(true)
 
         try {
             const response = await axios.post('/api/login', loginData)
-            console.log(response.data) // Handle successful login
+            console.log(response.data)
             setLoading(false)
-            // Redirect or show success message
         } catch (error) {
             setLoading(false)
-            toast.error('Invalid login credentials', toastOptions) // Using toastOptions
+            toast.error('Invalid login credentials', toastOptions)
         }
     }
 
-    // API call function for signup
     const validateSignup = async () => {
         setLoading(true)
 
         try {
             const response = await axios.post('/api/signup', signupData)
-            console.log(response.data) // Handle successful signup
+            console.log(response.data)
             setLoading(false)
-            // Redirect or show success message
         } catch (error) {
             setLoading(false)
-            toast.error('Failed to create an account', toastOptions) // Using toastOptions
+            toast.error('Failed to create an account', toastOptions)
         }
     }
 
@@ -101,7 +97,6 @@ const LoginRegister = () => {
                     gap: { xs: 3, md: 8 },
                 }}
             >
-                {/* Left Side: Name */}
                 <Box
                     sx={{
                         flex: 1,
@@ -130,7 +125,6 @@ const LoginRegister = () => {
                     </Typography>
                 </Box>
 
-                {/* Right Side: Forms */}
                 <Box
                     sx={{
                         flex: 2,
@@ -141,7 +135,6 @@ const LoginRegister = () => {
                         position: 'relative',
                     }}
                 >
-                    {/* Switcher Buttons */}
                     <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
                         <Button
                             variant={
@@ -183,7 +176,6 @@ const LoginRegister = () => {
                         </Button>
                     </Box>
 
-                    {/* Form Container */}
                     <Box
                         component={motion.div}
                         key={activeForm}
@@ -283,12 +275,12 @@ const LoginRegister = () => {
                                             mb: 2,
                                             '& label.Mui-focused': {
                                                 color: 'secondary.main',
-                                            }, // Change label color on focus
+                                            },
                                             '& .MuiOutlinedInput-root': {
                                                 '&.Mui-focused fieldset': {
                                                     borderColor:
                                                         'secondary.main',
-                                                }, // Change border color on focus
+                                                },
                                             },
                                         }}
                                     />
