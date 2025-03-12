@@ -29,7 +29,7 @@ function AppContent() {
 
             <BrowserRouter>
                 <Routes>
-                    <Route path="/" element={<LoginRegister />} />
+                    <Route path="/login" element={<LoginRegister />} />
                 </Routes>
             </BrowserRouter>
         </>
