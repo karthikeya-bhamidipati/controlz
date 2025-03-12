@@ -8,12 +8,6 @@ import {
   TextField,
 } from "@mui/material";
 import { Grid, Typography } from "@mui/material";
-import {
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  // Add other Recharts components as needed
-} from "recharts";
 
 const Settings = () => {
   const [settings, setSettings] = useState({
