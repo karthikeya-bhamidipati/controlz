@@ -14,6 +14,7 @@ import ControlCameraIcon from '@mui/icons-material/ControlCamera'
 import { motion } from 'framer-motion'
 import { useDarkMode } from '../context/DarkModeContext'
 import { loginRoute, registerRoute } from '../utils/ApiRoutes'
+import { useNavigate } from 'react-router-dom'
 
 const LoginRegister = () => {
     const [activeForm, setActiveForm] = useState('login')
@@ -46,17 +47,25 @@ const LoginRegister = () => {
             setSignupData({ ...signupData, [name]: value })
         }
     }
-
+    const navigate = useNavigate()
     const validateLogin = async () => {
         setLoading(true)
 
         try {
             const response = await axios.post(loginRoute, loginData)
-            console.log(response.data)
-            setLoading(false)
+            const { token } = response.data
+            if (token) {
+                localStorage.setItem('token', token)
+                axios.defaults.headers.common[
+                    'Authorization'
+                ] = `Bearer ${token}`
+                toast.success('Login successful!', toastOptions)
+                navigate('/')
+            }
         } catch (error) {
-            setLoading(false)
             toast.error('Invalid login credentials', toastOptions)
+        } finally {
+            setLoading(false)
         }
     }
 

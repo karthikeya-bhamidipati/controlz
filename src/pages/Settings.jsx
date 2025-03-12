@@ -7,7 +7,7 @@ import {
   Switch,
   TextField,
 } from "@mui/material";
-import { Grid, Typography } from "@mui/material";
+import { Typography } from "@mui/material";
 
 const Settings = () => {
   const [settings, setSettings] = useState({

@@ -12,7 +12,7 @@ import {
 } from "@mui/material";
 import { Edit, Delete } from "@mui/icons-material";
 import axios from "axios";
-import { Grid, Typography } from "@mui/material";
+import { Typography } from "@mui/material";
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);

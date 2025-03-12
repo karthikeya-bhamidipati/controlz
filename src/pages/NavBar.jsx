@@ -13,19 +13,15 @@ import {
   ListItemText,
   useTheme,
   useMediaQuery,
-  Tooltip,
   Typography,
 } from "@mui/material";
 import {
   Menu,
-  Dashboard,
   Devices,
   Analytics,
   People,
   Settings,
   Home,
-  Brightness4,
-  Brightness7,
 } from "@mui/icons-material";
 import ControlCameraIcon from "@mui/icons-material/ControlCamera";
 import { useDarkMode } from "../context/DarkModeContext";
@@ -40,7 +36,7 @@ const navItems = [
 
 const NavBar = () => {
   const theme = useTheme();
-  const { darkMode, toggleDarkMode } = useDarkMode();
+  const { darkMode } = useDarkMode();
   const location = useLocation();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -186,25 +182,6 @@ const NavBar = () => {
             ))}
           </Box>
         )}
-
-        {/* Right Section - Theme Toggle and User Menu */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Tooltip title={`Switch to ${darkMode ? "light" : "dark"} mode`}>
-            <IconButton
-              onClick={toggleDarkMode}
-              color="inherit"
-              sx={{
-                color: darkMode ? "text.primary" : "white",
-                "&:hover": {
-                  color: darkMode ? "orange" : "white",
-                },
-              }}
-              aria-label="toggle theme"
-            >
-              {darkMode ? <Brightness7 /> : <Brightness4 />}
-            </IconButton>
-          </Tooltip>
-        </Box>
       </Toolbar>
 
       {/* Mobile Drawer */}
