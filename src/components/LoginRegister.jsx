@@ -13,13 +13,14 @@ import 'react-toastify/dist/ReactToastify.css'
 import ControlCameraIcon from '@mui/icons-material/ControlCamera'
 import { motion } from 'framer-motion'
 import { useDarkMode } from '../context/DarkModeContext'
+import { loginRoute, registerRoute } from '../utils/ApiRoutes'
 
 const LoginRegister = () => {
     const [activeForm, setActiveForm] = useState('login')
 
     const { darkMode } = useDarkMode()
 
-    const [loginData, setLoginData] = useState({ email: '', password: '' })
+    const [loginData, setLoginData] = useState({ username: '', password: '' })
 
     const [signupData, setSignupData] = useState({
         username: '',
@@ -50,7 +51,7 @@ const LoginRegister = () => {
         setLoading(true)
 
         try {
-            const response = await axios.post('/api/login', loginData)
+            const response = await axios.post(loginRoute, loginData)
             console.log(response.data)
             setLoading(false)
         } catch (error) {
@@ -63,7 +64,7 @@ const LoginRegister = () => {
         setLoading(true)
 
         try {
-            const response = await axios.post('/api/signup', signupData)
+            const response = await axios.post(registerRoute, signupData)
             console.log(response.data)
             setLoading(false)
         } catch (error) {
@@ -214,11 +215,11 @@ const LoginRegister = () => {
                                 <>
                                     <TextField
                                         fullWidth
-                                        label="Email"
-                                        type="email"
+                                        label="Username"
+                                        type="text"
                                         margin="normal"
-                                        name="email"
-                                        value={loginData.email}
+                                        name="username"
+                                        value={loginData.username}
                                         onChange={(e) =>
                                             handleChange(e, 'login')
                                         }
