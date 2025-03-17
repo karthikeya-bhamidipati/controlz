@@ -84,7 +84,7 @@ const NavBar = () => {
 
   return (
     <AppBar
-      position="sticky"
+      position="static"
       sx={{
         bgcolor: darkMode ? "background.paper" : "primary.main",
         boxShadow: "none",
