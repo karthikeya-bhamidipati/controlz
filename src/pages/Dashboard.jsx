@@ -1,93 +1,211 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
-  Grid,
   Typography,
+  Grid,
   Card,
   CardContent,
-  LinearProgress,
+  Button,
+  CircularProgress,
+  Divider,
 } from "@mui/material";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from "recharts";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import DevicesIcon from "@mui/icons-material/Devices";
+import BarChartIcon from "@mui/icons-material/BarChart";
+import SettingsIcon from "@mui/icons-material/Settings";
+import { useDarkMode } from "../context/DarkModeContext"; // Assuming this exists
 
 const Dashboard = () => {
-  const [stats, setStats] = useState({
-    onlineDevices: 0,
-    energyUsage: 0,
-    activeAutomations: 0,
+  const { darkMode } = useDarkMode();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState({
+    totalDevices: 0,
+    activeDevices: 0,
+    recentActivities: [],
   });
 
-  const [activityData, setActivityData] = useState([]);
+  const toastOptions = {
+    position: "bottom-left",
+    autoClose: 5000,
+    pauseOnHover: true,
+    draggable: true,
+    theme: darkMode ? "dark" : "light",
+  };
 
+  // Fetch dashboard data from backend
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const [statsRes, activityRes] = await Promise.all([
-          axios.get("/api/dashboard/stats"),
-          axios.get("/api/dashboard/activity"),
-        ]);
-        setStats(statsRes.data);
-        setActivityData(activityRes.data);
+        const response = await axios.get("/api/dashboard", {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }, // Assuming JWT
+        });
+        setDashboardData(response.data);
+        setLoading(false);
       } catch (error) {
-        console.error("Error fetching dashboard data:", error);
+        setLoading(false);
+        toast.error("Failed to load dashboard data", toastOptions);
       }
     };
-    fetchData();
+    fetchDashboardData();
   }, []);
 
+  const handleNavigation = (path) => {
+    navigate(path);
+  };
+
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        System Overview
+    <Box
+      sx={{
+        minHeight: "100vh",
+        bgcolor: "background.default",
+        p: { xs: 2, sm: 4 },
+        transition: "background 0.5s ease",
+      }}
+    >
+      <Typography
+        variant="h4"
+        fontWeight="bold"
+        sx={{ mb: 4, color: "text.primary" }}
+      >
+        Dashboard
       </Typography>
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6">Online Devices</Typography>
-              <Typography variant="h3">{stats.onlineDevices}</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        {/* Add other stat cards similarly */}
-      </Grid>
+      {loading ? (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: "50vh",
+          }}
+        >
+          <CircularProgress />
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
+          {/* Key Metrics */}
+          <Grid item xs={12} sm={6} md={4}>
+            <Card
+              sx={{
+                bgcolor: "background.paper",
+                boxShadow: darkMode
+                  ? "5px 15px 30px rgba(222,222,222,0.2)"
+                  : "5px 15px 30px rgba(0,0,0,0.2)",
+              }}
+            >
+              <CardContent>
+                <Typography variant="h6" color="text.secondary">
+                  Total Devices
+                </Typography>
+                <Typography variant="h3" color="primary">
+                  {dashboardData.totalDevices}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <Card
+              sx={{
+                bgcolor: "background.paper",
+                boxShadow: darkMode
+                  ? "5px 15px 30px rgba(222,222,222,0.2)"
+                  : "5px 15px 30px rgba(0,0,0,0.2)",
+              }}
+            >
+              <CardContent>
+                <Typography variant="h6" color="text.secondary">
+                  Active Devices
+                </Typography>
+                <Typography variant="h3" color="success.main">
+                  {dashboardData.activeDevices}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
 
-      <Card sx={{ p: 2, mb: 4 }}>
-        <Typography variant="h6" gutterBottom>
-          Energy Consumption
-        </Typography>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={activityData}>
-            <XAxis dataKey="timestamp" />
-            <YAxis />
-            <Line type="monotone" dataKey="consumption" stroke="#8884d8" />
-          </LineChart>
-        </ResponsiveContainer>
-      </Card>
+          {/* Quick Links */}
+          <Grid item xs={12} md={4}>
+            <Card
+              sx={{
+                bgcolor: "background.paper",
+                boxShadow: darkMode
+                  ? "5px 15px 30px rgba(222,222,222,0.2)"
+                  : "5px 15px 30px rgba(0,0,0,0.2)",
+              }}
+            >
+              <CardContent>
+                <Typography variant="h6" color="text.secondary" mb={2}>
+                  Quick Actions
+                </Typography>
+                <Button
+                  variant="outlined"
+                  color="primary"
+                  startIcon={<DevicesIcon />}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  onClick={() => handleNavigation("/devices")}
+                >
+                  Device Management
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={<BarChartIcon />}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  onClick={() => handleNavigation("/analytics")}
+                >
+                  Analytics
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="info"
+                  startIcon={<SettingsIcon />}
+                  fullWidth
+                  onClick={() => handleNavigation("/users")}
+                >
+                  Settings
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Card sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Recent Alerts
-            </Typography>
-            {/* Map through recent alerts */}
-          </Card>
+          {/* Recent Activities */}
+          <Grid item xs={12}>
+            <Card
+              sx={{
+                bgcolor: "background.paper",
+                boxShadow: darkMode
+                  ? "5px 15px 30px rgba(222,222,222,0.2)"
+                  : "5px 15px 30px rgba(0,0,0,0.2)",
+              }}
+            >
+              <CardContent>
+                <Typography variant="h6" color="text.secondary" mb={2}>
+                  Recent Activities
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {dashboardData.recentActivities.length > 0 ? (
+                  dashboardData.recentActivities.map((activity, index) => (
+                    <Typography key={index} variant="body2" sx={{ mb: 1 }}>
+                      {activity.message} -{" "}
+                      {new Date(activity.timestamp).toLocaleString()}
+                    </Typography>
+                  ))
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    No recent activities.
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
-        <Grid item xs={12} md={6}>
-          <Card sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Device Health
-            </Typography>
-            <LinearProgress
-              variant="determinate"
-              value={75}
-              sx={{ height: 10, borderRadius: 5 }}
-            />
-          </Card>
-        </Grid>
-      </Grid>
+      )}
     </Box>
   );
 };
