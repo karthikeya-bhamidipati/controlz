@@ -1,8 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { IconButton } from "@mui/material";
-import { Brightness4, Brightness7 } from "@mui/icons-material";
 import { ToastContainer } from "react-toastify";
-import { DarkModeProvider, useDarkMode } from "./context/DarkModeContext";
+import { DarkModeProvider } from "./context/DarkModeContext";
 import "react-toastify/dist/ReactToastify.css";
 import DeviceManagement from "./pages/DeviceManagement";
 import UserManagement from "./pages/UserManagement";
@@ -10,11 +8,10 @@ import Dashboard from "./pages/Dashboard";
 import Analytics from "./pages/Analytics";
 import NavBar from "./pages/NavBar";
 import LoginRegister from "./pages/LoginRegister";
-import ProtectedRoute from "./components/ProtectedRoute";
+import UserProfile from "./pages/UserProfile";
+import ProtectedRoute from "./context/ProtectedRoute";
 
 function AppContent() {
-  const { darkMode, setDarkMode } = useDarkMode();
-
   return (
     <>
       <ToastContainer />
@@ -37,6 +34,7 @@ function AppContent() {
           <Route path="/devices" element={<DeviceManagement />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/users" element={<UserManagement />} />
+          <Route path="/profile" element={<UserProfile />} />
         </Route>
       </Routes>
     </>

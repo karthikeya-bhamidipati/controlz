@@ -402,12 +402,6 @@ const NavBar = () => {
           </ListItemIcon>
           <ListItemText primary="Profile" />
         </MenuItem>
-        <MenuItem component={Link} to="/settings" onClick={handleUserMenuClose}>
-          <ListItemIcon>
-            <Settings fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="Settings" />
-        </MenuItem>
         <Divider />
         <MenuItem onClick={handleUserMenuClose}>
           <ListItemIcon>

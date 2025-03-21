@@ -5,22 +5,16 @@ import {
   Grid,
   Card,
   CardContent,
-  Button,
   CircularProgress,
   Divider,
 } from "@mui/material";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import DevicesIcon from "@mui/icons-material/Devices";
-import BarChartIcon from "@mui/icons-material/BarChart";
-import SettingsIcon from "@mui/icons-material/Settings";
 import { useDarkMode } from "../context/DarkModeContext"; // Assuming this exists
 
 const Dashboard = () => {
   const { darkMode } = useDarkMode();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState({
     totalDevices: 0,
@@ -52,10 +46,6 @@ const Dashboard = () => {
     };
     fetchDashboardData();
   }, []);
-
-  const handleNavigation = (path) => {
-    navigate(path);
-  };
 
   return (
     <Box
@@ -123,53 +113,6 @@ const Dashboard = () => {
                 <Typography variant="h3" color="success.main">
                   {dashboardData.activeDevices}
                 </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Quick Links */}
-          <Grid item xs={12} md={4}>
-            <Card
-              sx={{
-                bgcolor: "background.paper",
-                boxShadow: darkMode
-                  ? "5px 15px 30px rgba(222,222,222,0.2)"
-                  : "5px 15px 30px rgba(0,0,0,0.2)",
-              }}
-            >
-              <CardContent>
-                <Typography variant="h6" color="text.secondary" mb={2}>
-                  Quick Actions
-                </Typography>
-                <Button
-                  variant="outlined"
-                  color="primary"
-                  startIcon={<DevicesIcon />}
-                  fullWidth
-                  sx={{ mb: 2 }}
-                  onClick={() => handleNavigation("/devices")}
-                >
-                  Device Management
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  startIcon={<BarChartIcon />}
-                  fullWidth
-                  sx={{ mb: 2 }}
-                  onClick={() => handleNavigation("/analytics")}
-                >
-                  Analytics
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="info"
-                  startIcon={<SettingsIcon />}
-                  fullWidth
-                  onClick={() => handleNavigation("/users")}
-                >
-                  Settings
-                </Button>
               </CardContent>
             </Card>
           </Grid>
