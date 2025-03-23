@@ -1,3 +1,10 @@
 export const host = 'http://localhost:8080'
 export const registerRoute = `${host}/api/users/register`
 export const loginRoute = `${host}/api/users/login`
+export const allDeviceRoute = `${host}/api/devices/`
+export const addDeviceRoute = `${host}/api/devices/addDevice`
+export const updateDeviceRoute = `${host}/api/devices/update`
+export const toggleDeviceRoute = `${host}/api/devices`
+export const deleteDeviceRoute = `${host}/api/devices`
+export const getRecentActivitiesRoute = `${host}/api/devices/recent-activity`
+export const getDeviceRoute = `${host}/api/devices/{deviceLocation}`
