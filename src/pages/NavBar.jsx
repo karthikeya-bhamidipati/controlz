@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
     AppBar,
@@ -26,7 +26,6 @@ import {
     Devices,
     Analytics,
     People,
-    Settings,
     Home,
     Notifications,
     AccountCircle,
@@ -40,14 +39,6 @@ import { useDarkMode } from '../context/DarkModeContext'
 import axios from 'axios'
 import { jwtDecode } from 'jwt-decode'
 
-const navItems = [
-    { text: 'Dashboard', path: '/', icon: <Home /> },
-    { text: 'Devices', path: '/devices', icon: <Devices /> },
-    { text: 'Analytics', path: '/analytics', icon: <Analytics /> },
-    { text: 'Users', path: '/users', icon: <People /> },
-    { text: 'Settings', path: '/settings', icon: <Settings /> },
-]
-
 const NavBar = () => {
     const theme = useTheme()
     const { darkMode, setDarkMode } = useDarkMode()
@@ -57,6 +48,16 @@ const NavBar = () => {
     const [userMenuAnchor, setUserMenuAnchor] = useState(null)
     const [notificationsAnchor, setNotificationsAnchor] = useState(null)
     const user = jwtDecode(localStorage.getItem('token'))
+
+    const navItems = [
+        { text: 'Dashboard', path: '/', icon: <Home /> },
+        { text: 'Devices', path: '/devices', icon: <Devices /> },
+        { text: 'Analytics', path: '/analytics', icon: <Analytics /> },
+        ...(user.role === 'ADMIN'
+            ? [{ text: 'Users', path: '/users', icon: <People /> }]
+            : []),
+    ]
+
     const handleDrawerToggle = () => {
         setMobileOpen(!mobileOpen)
     }
@@ -303,18 +304,16 @@ const NavBar = () => {
                     </Tooltip>
 
                     {/* Theme Toggle */}
-                    {!isMobile && (
-                        <Tooltip title={darkMode ? 'Light Mode' : 'Dark Mode'}>
-                            <IconButton
-                                onClick={() => setDarkMode(!darkMode)}
-                                sx={{
-                                    color: darkMode ? 'text.primary' : 'white',
-                                }}
-                            >
-                                {darkMode ? <LightMode /> : <DarkMode />}
-                            </IconButton>
-                        </Tooltip>
-                    )}
+                    <Tooltip title={darkMode ? 'Light Mode' : 'Dark Mode'}>
+                        <IconButton
+                            onClick={() => setDarkMode(!darkMode)}
+                            sx={{
+                                color: darkMode ? 'text.primary' : 'white',
+                            }}
+                        >
+                            {darkMode ? <LightMode /> : <DarkMode />}
+                        </IconButton>
+                    </Tooltip>
 
                     {/* User Menu */}
                     <Box>

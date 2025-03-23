@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
     Box,
     Typography,
@@ -39,6 +39,8 @@ import {
 } from '../utils/ApiRoutes'
 import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
+import NavBar from './NavBar'
+import { s } from 'framer-motion/client'
 
 const DeviceManagement = () => {
     axios.interceptors.request.use((config) => {
@@ -70,8 +72,14 @@ const DeviceManagement = () => {
     const user = token ? jwtDecode(token) : null
     const isAdmin = user && user.role === 'ADMIN'
 
+    const stompClientRef = useRef(null)
     useEffect(() => {
         fetchDevices()
+        // Check if WebSocket is already active to avoid duplicate connections
+        if (stompClientRef.current && stompClientRef.current.connected) {
+            console.log('WebSocket already connected')
+            return
+        }
         const token = localStorage.getItem('token')
         // WebSocket connection
         const socket = new SockJS('http://localhost:8080/ws')
@@ -82,28 +90,18 @@ const DeviceManagement = () => {
             onConnect: () => {
                 console.log('Connected to WebSocket')
 
-                // Subscribe to device updates
-                stompClient.subscribe(
-                    '/contrlz/devices',
-                    (message) => {
-                        const data = JSON.parse(message.body)
-                        console.log('Received WebSocket update:', data)
-                        setDevices((prevDevices) =>
-                            prevDevices.map((device) =>
-                                device.deviceId === data.deviceId
-                                    ? { ...device, status: data.status }
-                                    : device
-                            )
-                        )
-                    },
-                    { Authorization: `Bearer ${token}` } // Send JWT token in headers
-                )
+                stompClient.subscribe('/contrlz/devices', (message) => {
+                    const data = JSON.parse(message.body)
+                    console.log('Received WebSocket update:', data)
+                    setDevices([...data])
+                })
             },
             connectHeaders: {
                 Authorization: `Bearer ${token}`, // Attach token for authentication
             },
         })
 
+        stompClientRef.current = stompClient
         stompClient.activate()
         // Add error handling to WebSocket connection
         stompClient.onWebSocketError = (error) => {
@@ -117,9 +115,13 @@ const DeviceManagement = () => {
         }
 
         return () => {
-            stompClient.deactivate()
+            if (stompClientRef.current) {
+                console.log('Disconnecting WebSocket...')
+                stompClientRef.current.deactivate() // Cleanup on unmount
+                stompClientRef.current = null
+            }
         }
-    }, [])
+    }, [setDevices])
 
     const fetchDevices = async () => {
         try {
@@ -155,9 +157,7 @@ const DeviceManagement = () => {
     const handleDeleteDevice = async (deviceId) => {
         console.log(deviceId)
         try {
-            await axios.delete(`${deleteDeviceRoute}/${deviceId}`, {
-                params: { updatedBy: user.sub },
-            })
+            await axios.delete(`${deleteDeviceRoute}/${deviceId}`)
             fetchDevices()
             toast.success('Device deleted successfully', toastOptions)
         } catch (error) {
@@ -232,120 +232,136 @@ const DeviceManagement = () => {
     }
 
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h4" gutterBottom>
-                Device Management
-            </Typography>
+        <>
+            <NavBar />
+            <Box sx={{ p: 3 }}>
+                <Typography
+                    variant="h4"
+                    fontWeight="bold"
+                    sx={{ mb: 4, color: 'text.primary' }}
+                >
+                    Device Management
+                </Typography>
 
-            {isAdmin && (
-                <Box sx={{ mb: 2 }}>
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => openDeviceDialog()}
-                    >
-                        Add New Device
-                    </Button>
-                </Box>
-            )}
+                {isAdmin && (
+                    <Box sx={{ mb: 2 }}>
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => openDeviceDialog()}
+                        >
+                            Add New Device
+                        </Button>
+                    </Box>
+                )}
 
-            {loading ? (
-                <CircularProgress />
-            ) : (
-                <Stack direction="row" flexWrap="wrap" gap={2}>
-                    {devices.map((device) => (
-                        <Card key={device.deviceId} sx={{ width: 300 }}>
-                            <CardContent>
-                                <Box
-                                    display="flex"
-                                    alignItems="center"
-                                    justifyContent="space-between"
-                                >
-                                    {getDeviceIcon(
-                                        device.deviceType,
-                                        device.status
-                                    )}
-                                    <Switch
-                                        checked={device.status}
-                                        onChange={() =>
-                                            handleDeviceToggle(
-                                                device.deviceId,
-                                                !device.status
-                                            )
-                                        }
-                                    />
-                                </Box>
-                                <Typography variant="h6">
-                                    {device.deviceType}
-                                </Typography>
-                                <Typography color="textSecondary">
-                                    Location: {device.deviceLocation}
-                                </Typography>
-                                {isAdmin && (
-                                    <Box>
-                                        <IconButton
-                                            onClick={() =>
-                                                openDeviceDialog(device)
-                                            }
-                                        >
-                                            <EditIcon />
-                                        </IconButton>
-                                        <IconButton
-                                            onClick={() =>
-                                                handleDeleteDevice(
-                                                    device.deviceId
+                {loading ? (
+                    <CircularProgress />
+                ) : (
+                    <Stack direction="row" flexWrap="wrap" gap={2}>
+                        {devices.map((device) => (
+                            <Card key={device.deviceId} sx={{ width: 300 }}>
+                                <CardContent>
+                                    <Box
+                                        display="flex"
+                                        alignItems="center"
+                                        justifyContent="space-between"
+                                    >
+                                        {getDeviceIcon(
+                                            device.deviceType,
+                                            device.status
+                                        )}
+                                        <Switch
+                                            checked={device.status}
+                                            onChange={() =>
+                                                handleDeviceToggle(
+                                                    device.deviceId,
+                                                    !device.status
                                                 )
                                             }
-                                        >
-                                            <DeleteIcon />
-                                        </IconButton>
+                                        />
                                     </Box>
-                                )}
-                            </CardContent>
-                        </Card>
-                    ))}
-                </Stack>
-            )}
+                                    <Typography variant="h6">
+                                        {device.deviceType}
+                                    </Typography>
+                                    <Typography color="textSecondary">
+                                        Location: {device.deviceLocation}
+                                    </Typography>
+                                    <Typography color="textSecondary">
+                                        Updated at:{' '}
+                                        {new Date(
+                                            device.lastUpdated
+                                        ).toLocaleString()}
+                                    </Typography>
+                                    {isAdmin && (
+                                        <Box>
+                                            <IconButton
+                                                onClick={() =>
+                                                    openDeviceDialog(device)
+                                                }
+                                            >
+                                                <EditIcon />
+                                            </IconButton>
+                                            <IconButton
+                                                onClick={() =>
+                                                    handleDeleteDevice(
+                                                        device.deviceId
+                                                    )
+                                                }
+                                            >
+                                                <DeleteIcon />
+                                            </IconButton>
+                                        </Box>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </Stack>
+                )}
 
-            <Dialog
-                open={deviceDialog.open}
-                onClose={() =>
-                    setDeviceDialog({ ...deviceDialog, open: false })
-                }
-            >
-                <DialogTitle>
-                    {deviceDialog.isEdit ? 'Edit Device' : 'Add New Device'}
-                </DialogTitle>
-                <DialogContent>
-                    <TextField
-                        name="deviceType"
-                        label="Device Type"
-                        fullWidth
-                        value={deviceDialog.data.deviceType}
-                        onChange={handleDeviceChange}
-                        sx={{ mt: 2 }}
-                    />
-                    <TextField
-                        name="deviceLocation"
-                        label="Device Location"
-                        fullWidth
-                        value={deviceDialog.data.deviceLocation}
-                        onChange={handleDeviceChange}
-                        sx={{ mt: 2 }}
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button
-                        onClick={() =>
-                            setDeviceDialog({ ...deviceDialog, open: false })
-                        }
-                    >
-                        Cancel
-                    </Button>
-                    <Button onClick={handleDeviceSubmit}>Save</Button>
-                </DialogActions>
-            </Dialog>
-        </Box>
+                <Dialog
+                    open={deviceDialog.open}
+                    onClose={() =>
+                        setDeviceDialog({ ...deviceDialog, open: false })
+                    }
+                >
+                    <DialogTitle>
+                        {deviceDialog.isEdit ? 'Edit Device' : 'Add New Device'}
+                    </DialogTitle>
+                    <DialogContent>
+                        <TextField
+                            name="deviceType"
+                            label="Device Type"
+                            fullWidth
+                            value={deviceDialog.data.deviceType}
+                            onChange={handleDeviceChange}
+                            sx={{ mt: 2 }}
+                        />
+                        <TextField
+                            name="deviceLocation"
+                            label="Device Location"
+                            fullWidth
+                            value={deviceDialog.data.deviceLocation}
+                            onChange={handleDeviceChange}
+                            sx={{ mt: 2 }}
+                        />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button
+                            onClick={() =>
+                                setDeviceDialog({
+                                    ...deviceDialog,
+                                    open: false,
+                                })
+                            }
+                        >
+                            Cancel
+                        </Button>
+                        <Button onClick={handleDeviceSubmit}>Save</Button>
+                    </DialogActions>
+                </Dialog>
+            </Box>
+        </>
     )
 }
 

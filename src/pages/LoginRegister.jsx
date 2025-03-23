@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import {
     Box,
     Button,
@@ -7,9 +7,7 @@ import {
     Paper,
     IconButton,
     Tooltip,
-    useMediaQuery,
     CircularProgress,
-    useTheme,
 } from '@mui/material'
 import { DarkMode, LightMode } from '@mui/icons-material'
 import axios from 'axios'
@@ -31,8 +29,6 @@ const LoginRegister = () => {
         return config
     })
     const [activeForm, setActiveForm] = useState('login')
-    const theme = useTheme()
-    const isMobile = useMediaQuery(theme.breakpoints.down('md'))
     const { darkMode, setDarkMode } = useDarkMode()
 
     const [loginData, setLoginData] = useState({ username: '', password: '' })

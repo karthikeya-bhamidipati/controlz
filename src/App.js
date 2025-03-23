@@ -1,4 +1,8 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import {
+    BrowserRouter,
+    Routes,
+    Route,
+} from 'react-router-dom'
 import { ToastContainer } from 'react-toastify'
 import { DarkModeProvider } from './context/DarkModeContext'
 import 'react-toastify/dist/ReactToastify.css'
@@ -6,7 +10,6 @@ import DeviceManagement from './pages/DeviceManagement'
 import UserManagement from './pages/UserManagement'
 import Dashboard from './pages/Dashboard'
 import Analytics from './pages/Analytics'
-import NavBar from './pages/NavBar'
 import LoginRegister from './pages/LoginRegister'
 import UserProfile from './pages/UserProfile'
 import ProtectedRoute from './context/ProtectedRoute'
@@ -16,6 +19,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 
 function AppContent() {
+
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -37,20 +41,20 @@ function AppContent() {
             }
         )
     }, [navigate])
+
     return (
         <>
             <ToastContainer />
-            {useLocation().pathname !== '/login' && <NavBar />}
             <Routes>
-                <Route path="/login" element={<LoginRegister />} />
-                <Route element={<ProtectedRoute />}>
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/devices" element={<DeviceManagement />} />
-                    <Route path="/analytics" element={<Analytics />} />
-                    <Route path="/users" element={<UserManagement />} />
-                    <Route path="/profile" element={<UserProfile />} />
-                </Route>
-            </Routes>
+            <Route path="/login" element={<LoginRegister />} />
+            <Route element={<ProtectedRoute />}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/devices" element={<DeviceManagement />} />
+                <Route path="/analytics" element={<Analytics />} />
+                <Route path="/users" element={<UserManagement />} />
+                <Route path="/profile" element={<UserProfile />} />
+            </Route>
+        </Routes>
         </>
     )
 }
