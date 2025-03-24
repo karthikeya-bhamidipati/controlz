@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { ToastContainer } from 'react-toastify'
 import { DarkModeProvider } from './context/DarkModeContext'
 import 'react-toastify/dist/ReactToastify.css'
 import DeviceManagement from './pages/DeviceManagement'
@@ -12,7 +11,6 @@ import ProtectedRoute from './context/ProtectedRoute'
 import axios from 'axios'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'react-toastify'
 import { WebSocketProvider } from './context/WebSocketContext'
 
 function AppContent() {
@@ -30,7 +28,6 @@ function AppContent() {
                 if (error.response && error.response.status === 401) {
                     localStorage.removeItem('token')
                     delete axios.defaults.headers.common['Authorization']
-                    toast.error('Session expired. Please log in again.')
                     navigate('/login')
                 }
                 return Promise.reject(error)
@@ -40,7 +37,6 @@ function AppContent() {
 
     return (
         <>
-            <ToastContainer />
             <Routes>
                 <Route path="/login" element={<LoginRegister />} />
                 <Route element={<ProtectedRoute />}>

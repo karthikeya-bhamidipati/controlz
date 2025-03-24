@@ -15,7 +15,6 @@ import {
     ListItemText,
     useTheme,
     Typography,
-    Badge,
     Avatar,
     Menu,
     MenuItem,
@@ -27,7 +26,6 @@ import {
     Analytics,
     People,
     Home,
-    Notifications,
     AccountCircle,
     Logout,
     KeyboardArrowDown,
@@ -46,7 +44,6 @@ const NavBar = () => {
     const isMobile = useMediaQuery(theme.breakpoints.down('md'))
     const [mobileOpen, setMobileOpen] = useState(false)
     const [userMenuAnchor, setUserMenuAnchor] = useState(null)
-    const [notificationsAnchor, setNotificationsAnchor] = useState(null)
     const navigate = useNavigate()
     const token = localStorage.getItem('token')
     if (!token) {
@@ -76,14 +73,6 @@ const NavBar = () => {
         setUserMenuAnchor(null)
     }
 
-    const handleNotificationsOpen = (event) => {
-        setNotificationsAnchor(event.currentTarget)
-    }
-
-    const handleNotificationsClose = () => {
-        setNotificationsAnchor(null)
-    }
-
     const handleLogout = () => {
         // Remove token from localStorage
         localStorage.removeItem('token')
@@ -97,6 +86,7 @@ const NavBar = () => {
         // Close the menu
         handleUserMenuClose()
     }
+
     const drawer = (
         <Box sx={{ width: 250 }}>
             <Box
@@ -294,21 +284,6 @@ const NavBar = () => {
 
                 {/* Right Section - User Controls */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {/* Notifications */}
-                    <Tooltip title="Notifications">
-                        <IconButton
-                            onClick={handleNotificationsOpen}
-                            sx={{ color: darkMode ? 'text.primary' : 'white' }}
-                        >
-                            <Badge
-                                badgeContent={notifications.length}
-                                color="error"
-                            >
-                                <Notifications />
-                            </Badge>
-                        </IconButton>
-                    </Tooltip>
-
                     {/* Theme Toggle */}
                     <Tooltip title={darkMode ? 'Light Mode' : 'Dark Mode'}>
                         <IconButton
@@ -380,61 +355,6 @@ const NavBar = () => {
                     )}
                 </Box>
             </Toolbar>
-
-            {/* Notifications Menu */}
-            <Menu
-                anchorEl={notificationsAnchor}
-                open={Boolean(notificationsAnchor)}
-                onClose={handleNotificationsClose}
-                PaperProps={{
-                    sx: { width: 320, maxHeight: 360, mt: 1.5 },
-                }}
-                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-            >
-                <Typography variant="subtitle1" sx={{ p: 2, fontWeight: 600 }}>
-                    Notifications
-                </Typography>
-                <Divider />
-                {notifications.map((notification) => (
-                    <MenuItem
-                        key={notification.id}
-                        onClick={handleNotificationsClose}
-                        sx={{ py: 1.5 }}
-                    >
-                        <Box sx={{ width: '100%' }}>
-                            <Typography
-                                variant="body2"
-                                sx={{ fontWeight: 500 }}
-                            >
-                                {notification.text}
-                            </Typography>
-                            <Typography
-                                variant="caption"
-                                color="text.secondary"
-                            >
-                                {notification.time}
-                            </Typography>
-                        </Box>
-                    </MenuItem>
-                ))}
-                <Divider />
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 1 }}>
-                    <Typography
-                        component={Link}
-                        to="/notifications"
-                        sx={{
-                            color: theme.palette.primary.main,
-                            textDecoration: 'none',
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
-                        }}
-                        onClick={handleNotificationsClose}
-                    >
-                        View all notifications
-                    </Typography>
-                </Box>
-            </Menu>
 
             {/* User Menu */}
             <Menu
