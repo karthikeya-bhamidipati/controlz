@@ -185,19 +185,11 @@ const LoginRegister = () => {
     setLoading(true);
     try {
       const response = await axios.post(loginRoute, loginData);
-      const { token, user } = response.data;
+      const { token } = response.data;
 
       if (token) {
-        // Handle remember me functionality
-        if (rememberMe) {
-          localStorage.setItem("rememberedUsername", loginData.username);
-        } else {
-          localStorage.removeItem("rememberedUsername");
-        }
-
         // Store auth token and user info
         localStorage.setItem("token", token);
-        localStorage.setItem("user", JSON.stringify(user));
 
         // Set auth header for future requests
         axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
@@ -206,7 +198,7 @@ const LoginRegister = () => {
 
         // Delayed navigation for better UX
         setTimeout(() => {
-          navigate("/dashboard");
+          navigate("/");
         }, 1000);
       }
     } catch (error) {
@@ -254,28 +246,12 @@ const LoginRegister = () => {
     }
   };
 
-  // Social login handlers
-  const handleSocialLogin = (provider) => {
-    toast.info(
-      `${provider} login will be implemented in the future.`,
-      toastOptions
-    );
-  };
-
   // Handle form switch with animation
   const switchForm = (form) => {
     if (form !== activeForm) {
       setFormSubmitted(false);
       setActiveForm(form);
     }
-  };
-
-  // Password reset handler
-  const handlePasswordReset = () => {
-    toast.info(
-      "Password reset functionality will be added soon!",
-      toastOptions
-    );
   };
 
   return (
@@ -433,8 +409,7 @@ const LoginRegister = () => {
               mx: "auto",
             }}
           >
-            Take control of your digital experience with our innovative
-            platform.
+            Smarter Automation, Limitless Control
           </Typography>
         </Box>
 
@@ -618,29 +593,6 @@ const LoginRegister = () => {
                     required
                   />
 
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      mt: 1,
-                      mb: 2,
-                    }}
-                  >
-                    {/* Remember me checkbox would go here */}
-                    <Link
-                      component="button"
-                      variant="body2"
-                      onClick={handlePasswordReset}
-                      sx={{
-                        color: "primary.main",
-                        "&:hover": { textDecoration: "underline" },
-                      }}
-                    >
-                      Forgot password?
-                    </Link>
-                  </Box>
-
                   <Button
                     fullWidth
                     type="submit"
@@ -676,50 +628,6 @@ const LoginRegister = () => {
                       "Login"
                     )}
                   </Button>
-
-                  <Box sx={{ my: 3, display: "flex", alignItems: "center" }}>
-                    <Divider sx={{ flex: 1 }} />
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ px: 2 }}
-                    >
-                      OR
-                    </Typography>
-                    <Divider sx={{ flex: 1 }} />
-                  </Box>
-
-                  {/* Social login options */}
-                  <Box
-                    sx={{ display: "flex", justifyContent: "center", gap: 2 }}
-                  >
-                    <Tooltip title="Login with Google">
-                      <IconButton
-                        sx={{
-                          bgcolor: "#DB4437",
-                          color: "white",
-                          "&:hover": { bgcolor: "#C23321" },
-                        }}
-                        onClick={() => handleSocialLogin("Google")}
-                      >
-                        <GoogleIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Login with GitHub">
-                      <IconButton
-                        sx={{
-                          bgcolor: darkMode ? "#ffffff" : "#333333",
-                          color: darkMode ? "#333333" : "#ffffff",
-                          "&:hover": {
-                            bgcolor: darkMode ? "#e6e6e6" : "#222222",
-                          },
-                        }}
-                        onClick={() => handleSocialLogin("GitHub")}
-                      >
-                        <GitHubIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
                 </form>
               ) : (
                 <form onSubmit={handleSignup} noValidate>
@@ -804,11 +712,6 @@ const LoginRegister = () => {
                     }}
                     required
                   />
-
-                  <FormHelperText sx={{ mt: 1, mb: 2 }}>
-                    By creating an account, you agree to our Terms of Service
-                    and Privacy Policy.
-                  </FormHelperText>
 
                   <Button
                     fullWidth
