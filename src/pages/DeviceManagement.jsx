@@ -53,8 +53,10 @@ const DeviceManagement = () => {
 
     const { darkMode } = useDarkMode()
     const toastOptions = {
-        position: 'bottom-left',
-        autoClose: 5000,
+        position: 'bottom-center',
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: true,
         pauseOnHover: true,
         draggable: true,
         theme: darkMode ? 'dark' : 'light',
