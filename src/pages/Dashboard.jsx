@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
     Box,
     Typography,
@@ -13,9 +13,8 @@ import { toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import { useDarkMode } from '../context/DarkModeContext'
 import { allDeviceRoute, getRecentActivitiesRoute } from '../utils/ApiRoutes'
-import SockJS from 'sockjs-client'
-import { Client } from '@stomp/stompjs'
 import NavBar from './NavBar'
+import { useWebSocket } from '../context/WebSocketContext'
 
 const Dashboard = () => {
     const { darkMode } = useDarkMode()
@@ -33,9 +32,8 @@ const Dashboard = () => {
         draggable: true,
         theme: darkMode ? 'dark' : 'light',
     }
-    const stompClientRef = useRef(null) // Store WebSocket instance
 
-    const fetchInitialData = useCallback(async () => {
+    const fetchInitialData = async () => {
         try {
             const [deviceResponse, activityResponse] = await Promise.all([
                 axios.get(allDeviceRoute),
@@ -61,82 +59,43 @@ const Dashboard = () => {
         } finally {
             setLoading(false)
         }
-    }, [])
+    }
+
+    const { isConnected, subscribe } = useWebSocket()
 
     useEffect(() => {
-        fetchInitialData() // Fetch data on mount
+        fetchInitialData()
+        if (!isConnected) return
 
-        const token = localStorage.getItem('token')
+        const subscription = subscribe('/contrlz/devices', (data) => {
+            console.log('Received WebSocket device update:', data)
 
-        // Prevent duplicate connections
-        if (stompClientRef.current) {
-            console.log('WebSocket already connected')
-            return
-        }
-
-        const socket = new SockJS('http://localhost:8080/ws')
-        const stompClient = new Client({
-            webSocketFactory: () => socket,
-            reconnectDelay: 5000,
-            debug: (msg) => console.log('[WebSocket Debug]:', msg),
-            connectHeaders: {
-                Authorization: `Bearer ${token}`, // Attach JWT token at connection time
-            },
-            onConnect: () => {
-                console.log('Connected to WebSocket')
-
-                // Subscribe to device updates
-                stompClient.subscribe('/contrlz/devices', (message) => {
-                    const data = JSON.parse(message.body)
-                    console.log('Received WebSocket device update:', data)
-
-                    setDashboardData((prevData) => {
-                        return {
-                            ...prevData,
-                            totalDevices: data.length,
-                            activeDevices: data.filter(
-                                (device) => device.status === true
-                            ).length,
-                        }
-                    })
-                })
-
-                // Subscribe to recent activities updates
-                stompClient.subscribe('/contrlz/recent-activity', (message) => {
-                    const data = JSON.parse(message.body)
-                    console.log(
-                        'Received WebSocket recent activities update:',
-                        data
-                    )
-                    setDashboardData((prevData) => {
-                        return {
-                            ...prevData,
-                            recentActivities: [...data],
-                        }
-                    })
-                })
-            },
-            onStompError: (frame) => {
-                console.error('STOMP Error:', frame.headers.message)
-                toast.error('Real-time protocol error', toastOptions)
-            },
-            onWebSocketError: (error) => {
-                console.error('WebSocket Error:', error)
-                toast.error('Real-time connection failed', toastOptions)
-            },
+            setDashboardData((prevData) => {
+                return {
+                    ...prevData,
+                    totalDevices: data.length,
+                    activeDevices: data.filter(
+                        (device) => device.status === true
+                    ).length,
+                }
+            })
         })
 
-        stompClientRef.current = stompClient
-        stompClient.activate()
+        const activity = subscribe('/contrlz/recent-activity', (data) => {
+            console.log('Received WebSocket recent activities update:', data)
+            setDashboardData((prevData) => {
+                return {
+                    ...prevData,
+                    recentActivities: [...data],
+                }
+            })
+        })
 
         return () => {
-            if (stompClientRef.current) {
-                console.log('Disconnecting WebSocket...')
-                stompClientRef.current.deactivate()
-                stompClientRef.current = null
-            }
+            if (activity) activity.unsubscribe()
+            if (subscription) subscription.unsubscribe()
         }
-    }, [fetchInitialData])
+    }, [isConnected])
     return (
         <>
             <NavBar />

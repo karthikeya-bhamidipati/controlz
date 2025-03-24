@@ -47,7 +47,13 @@ const NavBar = () => {
     const [mobileOpen, setMobileOpen] = useState(false)
     const [userMenuAnchor, setUserMenuAnchor] = useState(null)
     const [notificationsAnchor, setNotificationsAnchor] = useState(null)
-    const user = jwtDecode(localStorage.getItem('token'))
+    const navigate = useNavigate()
+    const token = localStorage.getItem('token')
+    if (!token) {
+        console.warn('No token found! Redirecting to login...')
+        navigate('/login')
+    }
+    const user = token ? jwtDecode(token) : ''
 
     const navItems = [
         { text: 'Dashboard', path: '/', icon: <Home /> },
@@ -77,7 +83,7 @@ const NavBar = () => {
     const handleNotificationsClose = () => {
         setNotificationsAnchor(null)
     }
-    const navigate = useNavigate()
+
     const handleLogout = () => {
         // Remove token from localStorage
         localStorage.removeItem('token')

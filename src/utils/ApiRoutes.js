@@ -1,4 +1,4 @@
-export const host = 'http://localhost:8080'
+export const host = 'http://10.130.234.25:8080'
 export const registerRoute = `${host}/api/users/register`
 export const loginRoute = `${host}/api/users/login`
 export const allDeviceRoute = `${host}/api/devices/`

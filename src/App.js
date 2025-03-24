@@ -1,8 +1,4 @@
-import {
-    BrowserRouter,
-    Routes,
-    Route,
-} from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify'
 import { DarkModeProvider } from './context/DarkModeContext'
 import 'react-toastify/dist/ReactToastify.css'
@@ -17,9 +13,9 @@ import axios from 'axios'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
+import { WebSocketProvider } from './context/WebSocketContext'
 
 function AppContent() {
-
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -46,15 +42,15 @@ function AppContent() {
         <>
             <ToastContainer />
             <Routes>
-            <Route path="/login" element={<LoginRegister />} />
-            <Route element={<ProtectedRoute />}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/devices" element={<DeviceManagement />} />
-                <Route path="/analytics" element={<Analytics />} />
-                <Route path="/users" element={<UserManagement />} />
-                <Route path="/profile" element={<UserProfile />} />
-            </Route>
-        </Routes>
+                <Route path="/login" element={<LoginRegister />} />
+                <Route element={<ProtectedRoute />}>
+                    <Route path="/" element={<Dashboard />} />
+                    <Route path="/devices" element={<DeviceManagement />} />
+                    <Route path="/analytics" element={<Analytics />} />
+                    <Route path="/users" element={<UserManagement />} />
+                    <Route path="/profile" element={<UserProfile />} />
+                </Route>
+            </Routes>
         </>
     )
 }
@@ -62,9 +58,11 @@ function AppContent() {
 function App() {
     return (
         <BrowserRouter>
-            <DarkModeProvider>
-                <AppContent />
-            </DarkModeProvider>
+            <WebSocketProvider>
+                <DarkModeProvider>
+                    <AppContent />
+                </DarkModeProvider>
+            </WebSocketProvider>
         </BrowserRouter>
     )
 }

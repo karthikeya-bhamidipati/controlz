@@ -43,9 +43,7 @@ const LoginRegister = () => {
 
     const toastOptions = {
         position: 'bottom-left',
-        autoClose: 5000,
-        pauseOnHover: true,
-        draggable: true,
+        autoClose: 3000,
         theme: darkMode ? 'dark' : 'light',
     }
 

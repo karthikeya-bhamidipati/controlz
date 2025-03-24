@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
     Box,
     Typography,
@@ -12,6 +12,8 @@ import {
     TextField,
     Stack,
     Card,
+    Select,
+    MenuItem,
     CardContent,
     CircularProgress,
 } from '@mui/material'
@@ -37,10 +39,8 @@ import {
     deleteDeviceRoute,
     toggleDeviceRoute,
 } from '../utils/ApiRoutes'
-import SockJS from 'sockjs-client'
-import { Client } from '@stomp/stompjs'
 import NavBar from './NavBar'
-import { s } from 'framer-motion/client'
+import { useWebSocket } from '../context/WebSocketContext'
 
 const DeviceManagement = () => {
     axios.interceptors.request.use((config) => {
@@ -72,56 +72,20 @@ const DeviceManagement = () => {
     const user = token ? jwtDecode(token) : null
     const isAdmin = user && user.role === 'ADMIN'
 
-    const stompClientRef = useRef(null)
+    const { isConnected, subscribe } = useWebSocket()
+
     useEffect(() => {
         fetchDevices()
-        // Check if WebSocket is already active to avoid duplicate connections
-        if (stompClientRef.current && stompClientRef.current.connected) {
-            console.log('WebSocket already connected')
-            return
-        }
-        const token = localStorage.getItem('token')
-        // WebSocket connection
-        const socket = new SockJS('http://localhost:8080/ws')
-        const stompClient = new Client({
-            webSocketFactory: () => socket,
-            reconnectDelay: 5000,
-            debug: (msg) => console.log(msg),
-            onConnect: () => {
-                console.log('Connected to WebSocket')
+        if (!isConnected) return
 
-                stompClient.subscribe('/contrlz/devices', (message) => {
-                    const data = JSON.parse(message.body)
-                    console.log('Received WebSocket update:', data)
-                    setDevices([...data])
-                })
-            },
-            connectHeaders: {
-                Authorization: `Bearer ${token}`, // Attach token for authentication
-            },
+        const subscription = subscribe('/contrlz/devices', (data) => {
+            console.log('Received WebSocket update:', data)
+            setDevices([...data])
         })
-
-        stompClientRef.current = stompClient
-        stompClient.activate()
-        // Add error handling to WebSocket connection
-        stompClient.onWebSocketError = (error) => {
-            console.error('WebSocket Error:', error)
-            toast.error('Real-time connection failed', toastOptions)
-        }
-
-        stompClient.onStompError = (frame) => {
-            console.error('STOMP Error:', frame.headers.message)
-            toast.error('Real-time protocol error', toastOptions)
-        }
-
         return () => {
-            if (stompClientRef.current) {
-                console.log('Disconnecting WebSocket...')
-                stompClientRef.current.deactivate() // Cleanup on unmount
-                stompClientRef.current = null
-            }
+            if (subscription) subscription.unsubscribe()
         }
-    }, [setDevices])
+    }, [isConnected])
 
     const fetchDevices = async () => {
         try {
@@ -218,13 +182,13 @@ const DeviceManagement = () => {
         const type = deviceType.toLowerCase()
         if (type === 'light')
             return status ? (
-                <LightbulbIcon fontSize="large" />
+                <LightbulbIcon fontSize="large" color="primary" />
             ) : (
                 <LightbulbOffIcon fontSize="large" />
             )
         if (type === 'fan')
             return status ? (
-                <FanIcon fontSize="large" />
+                <FanIcon fontSize="large" color="primary" />
             ) : (
                 <FanOffIcon fontSize="large" />
             )
@@ -329,14 +293,20 @@ const DeviceManagement = () => {
                         {deviceDialog.isEdit ? 'Edit Device' : 'Add New Device'}
                     </DialogTitle>
                     <DialogContent>
-                        <TextField
+                        <Select
                             name="deviceType"
-                            label="Device Type"
                             fullWidth
                             value={deviceDialog.data.deviceType}
                             onChange={handleDeviceChange}
                             sx={{ mt: 2 }}
-                        />
+                            displayEmpty
+                        >
+                            <MenuItem value="" disabled>
+                                Select Device Type
+                            </MenuItem>
+                            <MenuItem value="FAN">FAN</MenuItem>
+                            <MenuItem value="LIGHT">LIGHT</MenuItem>
+                        </Select>
                         <TextField
                             name="deviceLocation"
                             label="Device Location"
