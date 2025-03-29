@@ -18,38 +18,38 @@ import { WebSocketProvider } from "./context/WebSocketContext";
 function AppContent() {
   const navigate = useNavigate();
 
-  // useEffect(() => {
-  //     const token = localStorage.getItem('token')
-  //     if (token) {
-  //         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-  //     }
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    }
 
-  //     axios.interceptors.response.use(
-  //         (response) => response,
-  //         (error) => {
-  //             if (error.response && error.response.status === 401) {
-  //                 localStorage.removeItem('token')
-  //                 delete axios.defaults.headers.common['Authorization']
-  //                 toast.error('Session expired. Please log in again.')
-  //                 navigate('/login')
-  //             }
-  //             return Promise.reject(error)
-  //         }
-  //     )
-  // }, [navigate])
+    axios.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response && error.response.status === 401) {
+          localStorage.removeItem("token");
+          delete axios.defaults.headers.common["Authorization"];
+          toast.error("Session expired. Please log in again.");
+          navigate("/login");
+        }
+        return Promise.reject(error);
+      }
+    );
+  }, [navigate]);
 
   return (
     <>
       <ToastContainer />
       <Routes>
         <Route path="/login" element={<LoginRegister />} />
-        {/* <Route element={<ProtectedRoute />}> */}
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/devices" element={<DeviceManagement />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/users" element={<UserManagement />} />
-        <Route path="/profile" element={<UserProfile />} />
-        {/* </Route> */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/devices" element={<DeviceManagement />} />
+          <Route path="/analytics" element={<Analytics />} />
+          <Route path="/users" element={<UserManagement />} />
+          <Route path="/profile" element={<UserProfile />} />
+        </Route>
       </Routes>
     </>
   );
