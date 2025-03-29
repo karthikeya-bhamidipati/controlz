@@ -1,670 +1,931 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from "react";
 import {
-    Box,
-    Card,
-    CardContent,
-    Typography,
-    Select,
-    MenuItem,
-    Grid,
-    Paper,
-    Button,
-    CircularProgress,
-    Divider,
-    IconButton,
-    Tooltip,
-    Tab,
-    Tabs,
-} from '@mui/material'
-import {
-    BarChart,
-    Bar,
-    LineChart,
-    Line,
-    PieChart,
-    Pie,
-    CartesianGrid,
-    Tooltip as RechartsTooltip,
-    Legend,
-    ResponsiveContainer,
-    XAxis,
-    YAxis,
-    Cell,
-    AreaChart,
-    Area,
-} from 'recharts'
-import RefreshIcon from '@mui/icons-material/Refresh'
-import DownloadIcon from '@mui/icons-material/Download'
-import ThermostatIcon from '@mui/icons-material/Thermostat'
-import WaterDropIcon from '@mui/icons-material/WaterDrop'
-import ElectricBoltIcon from '@mui/icons-material/ElectricBolt'
-import LightbulbIcon from '@mui/icons-material/Lightbulb'
-import NavBar from './NavBar'
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  CircularProgress,
+  Divider,
+  Stack,
+  Grid,
+  Avatar,
+  Chip,
+  IconButton,
+  Tooltip,
+  LinearProgress,
+  Button,
+  Badge,
+} from "@mui/material";
+import axios from "axios";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { useDarkMode } from "../context/DarkModeContext";
+import { allDeviceRoute, getRecentActivitiesRoute } from "../utils/ApiRoutes";
+import NavBar from "./NavBar";
+import { useWebSocket } from "../context/WebSocketContext";
+import { motion } from "framer-motion";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import DevicesIcon from "@mui/icons-material/Devices";
+import PowerIcon from "@mui/icons-material/Power";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import HistoryIcon from "@mui/icons-material/History";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import FilterListIcon from "@mui/icons-material/FilterList";
 
-const Analytics = () => {
-    const [timeRange, setTimeRange] = useState('week')
-    const [loading, setLoading] = useState(false)
-    const [activeTab, setActiveTab] = useState(0)
+const Dashboard = () => {
+  const { darkMode } = useDarkMode();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [dashboardData, setDashboardData] = useState({
+    totalDevices: 0,
+    activeDevices: 0,
+    inactiveDevices: 0,
+    recentActivities: [],
+    deviceCategories: [],
+    lastRefreshed: null,
+  });
+  const [showAllActivities, setShowAllActivities] = useState(false);
+  const [filter, setFilter] = useState("all");
 
-    // Mock data - would come from API in real implementation
-    const [energyData, setEnergyData] = useState([
-        { date: 'Mon', usage: 65, cost: 7.8, temp: 22 },
-        { date: 'Tue', usage: 59, cost: 7.1, temp: 21 },
-        { date: 'Wed', usage: 80, cost: 9.6, temp: 23 },
-        { date: 'Thu', usage: 81, cost: 9.7, temp: 24 },
-        { date: 'Fri', usage: 56, cost: 6.7, temp: 21 },
-        { date: 'Sat', usage: 55, cost: 6.6, temp: 20 },
-        { date: 'Sun', usage: 40, cost: 4.8, temp: 19 },
-    ])
+  const toastOptions = {
+    position: "bottom-right",
+    autoClose: 5000,
+    pauseOnHover: true,
+    draggable: true,
+    theme: darkMode ? "dark" : "light",
+  };
 
-    const [deviceData] = useState([
-        { name: 'Lighting', value: 30, color: '#FFB900' },
-        { name: 'HVAC', value: 45, color: '#0078D7' },
-        { name: 'Kitchen', value: 15, color: '#E81123' },
-        { name: 'Other', value: 10, color: '#00CC6A' },
-    ])
+  // Calculate device categories for the distribution chart
+  const processDeviceData = (devices) => {
+    const categories = {};
+    devices.forEach((device) => {
+      const type = device.deviceType || "Unknown";
+      if (!categories[type]) {
+        categories[type] = { total: 0, active: 0 };
+      }
+      categories[type].total += 1;
+      if (device.status === true) {
+        categories[type].active += 1;
+      }
+    });
 
-    const [temperatureData, setTemperatureData] = useState([
-        { time: '00:00', indoor: 21, outdoor: 18 },
-        { time: '04:00', indoor: 20, outdoor: 16 },
-        { time: '08:00', indoor: 21, outdoor: 19 },
-        { time: '12:00', indoor: 23, outdoor: 24 },
-        { time: '16:00', indoor: 24, outdoor: 26 },
-        { time: '20:00', indoor: 22, outdoor: 22 },
-    ])
+    return Object.entries(categories).map(([name, data]) => ({
+      name,
+      total: data.total,
+      active: data.active,
+      percentage: Math.round((data.active / data.total) * 100),
+    }));
+  };
 
-    const [waterData] = useState([
-        { date: 'Mon', usage: 120 },
-        { date: 'Tue', usage: 132 },
-        { date: 'Wed', usage: 101 },
-        { date: 'Thu', usage: 134 },
-        { date: 'Fri', usage: 90 },
-        { date: 'Sat', usage: 230 },
-        { date: 'Sun', usage: 210 },
-    ])
+  const fetchInitialData = async () => {
+    try {
+      setRefreshing(true);
+      const [deviceResponse, activityResponse] = await Promise.all([
+        axios.get(allDeviceRoute),
+        axios.get(getRecentActivitiesRoute),
+      ]);
 
-    // Usage statistics
-    const [stats] = useState({
-        energy: {
-            current: 390,
-            previous: 420,
-            unit: 'kWh',
-            change: -7.14,
-            cost: 46.8,
-        },
-        water: {
-            current: 1017,
-            previous: 980,
-            unit: 'L',
-            change: 3.78,
-            cost: 12.2,
-        },
-        temperature: {
-            current: 21.5,
-            optimal: 21,
-            unit: '°C',
-            change: 0.5,
-        },
-        devices: {
-            total: 24,
-            active: 16,
-            alert: 2,
-        },
-    })
+      const devices = deviceResponse.data;
+      const totalDevices = devices.length;
+      const activeDevices = devices.filter(
+        (device) => device.status === true
+      ).length;
+      const inactiveDevices = totalDevices - activeDevices;
+      const recentActivities = activityResponse.data;
+      const deviceCategories = processDeviceData(devices);
 
-    // Simulate loading new data
-    const refreshData = () => {
-        setLoading(true)
+      setDashboardData({
+        totalDevices,
+        activeDevices,
+        inactiveDevices,
+        recentActivities,
+        deviceCategories,
+        lastRefreshed: new Date(),
+      });
 
-        // Simulate API call with timeout
-        setTimeout(() => {
-            // Random data refresh
-            const newEnergyData = energyData.map((item) => ({
-                ...item,
-                usage: item.usage * (0.9 + Math.random() * 0.2),
-                cost: item.usage * 0.12 * (0.9 + Math.random() * 0.2),
-                temp: item.temp * (0.95 + Math.random() * 0.1),
-            }))
+      toast.success("Dashboard data refreshed successfully", toastOptions);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      toast.error(
+        `Error fetching dashboard data: ${error.message || "Unknown error"}`,
+        toastOptions
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
-            const newTempData = temperatureData.map((item) => ({
-                ...item,
-                indoor: item.indoor * (0.95 + Math.random() * 0.1),
-                outdoor: item.outdoor * (0.9 + Math.random() * 0.2),
-            }))
+  const { isConnected, subscribe } = useWebSocket();
 
-            setEnergyData(newEnergyData)
-            setTemperatureData(newTempData)
-            setLoading(false)
-        }, 800)
+  useEffect(() => {
+    fetchInitialData();
+
+    if (!isConnected) return;
+
+    const subscription = subscribe("/contrlz/devices", (data) => {
+      console.log("Received WebSocket device update:", data);
+
+      const totalDevices = data.length;
+      const activeDevices = data.filter(
+        (device) => device.status === true
+      ).length;
+      const deviceCategories = processDeviceData(data);
+
+      setDashboardData((prevData) => ({
+        ...prevData,
+        totalDevices,
+        activeDevices,
+        inactiveDevices: totalDevices - activeDevices,
+        deviceCategories,
+        lastRefreshed: new Date(),
+      }));
+    });
+
+    const activity = subscribe("/contrlz/recent-activity", (data) => {
+      console.log("Received WebSocket recent activities update:", data);
+      setDashboardData((prevData) => ({
+        ...prevData,
+        recentActivities: [...data],
+        lastRefreshed: new Date(),
+      }));
+    });
+
+    return () => {
+      if (activity) activity.unsubscribe();
+      if (subscription) subscription.unsubscribe();
+    };
+  }, [isConnected]);
+
+  // Filter activities based on selected filter
+  const filteredActivities = useMemo(() => {
+    if (filter === "all") return dashboardData.recentActivities;
+    if (filter === "on")
+      return dashboardData.recentActivities.filter(
+        (activity) => !activity.turnedOffBy
+      );
+    if (filter === "off")
+      return dashboardData.recentActivities.filter(
+        (activity) => activity.turnedOffBy
+      );
+    return dashboardData.recentActivities;
+  }, [dashboardData.recentActivities, filter]);
+
+  // Calculate statistics for activity summary
+  const activityStats = useMemo(() => {
+    const stats = {
+      total: dashboardData.recentActivities.length,
+      turnedOn: 0,
+      turnedOff: 0,
+      today: 0,
+    };
+
+    const today = new Date().setHours(0, 0, 0, 0);
+
+    dashboardData.recentActivities.forEach((activity) => {
+      if (activity.turnedOffBy) stats.turnedOff++;
+      else stats.turnedOn++;
+
+      const activityDate = new Date(activity.startTime).setHours(0, 0, 0, 0);
+      if (activityDate === today) stats.today++;
+    });
+
+    return stats;
+  }, [dashboardData.recentActivities]);
+
+  const handleRefresh = () => {
+    fetchInitialData();
+  };
+
+  const getDeviceTypeColor = (type) => {
+    const colorMap = {
+      Light: "#FFB900",
+      Thermostat: "#E81123",
+      Fan: "#0078D7",
+      TV: "#00CC6A",
+      Speaker: "#8764B8",
+      Lock: "#C239B3",
+      Outlet: "#00B7C3",
+      Sensor: "#FF8C00",
+    };
+
+    return colorMap[type] || "#777777";
+  };
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+
+    // If less than a day, show relative time
+    if (diff < 24 * 60 * 60 * 1000) {
+      if (diff < 60 * 1000) return "just now";
+      if (diff < 60 * 60 * 1000)
+        return `${Math.floor(diff / (60 * 1000))}m ago`;
+      return `${Math.floor(diff / (60 * 60 * 1000))}h ago`;
     }
 
-    // Effect to simulate initial data loading
-    useEffect(() => {
-        refreshData()
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [timeRange])
+    // Otherwise show date and time
+    return date.toLocaleString();
+  };
 
-    const handleTabChange = (event, newValue) => {
-        setActiveTab(newValue)
-    }
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
 
-    return (
-        <>
-            <NavBar />
-            <Box sx={{ p: 3 }}>
-                <Box
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1,
+      transition: { duration: 0.3 },
+    },
+  };
+
+  return (
+    <>
+      <NavBar />
+      <Box
+        component={motion.div}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        sx={{
+          minHeight: "100vh",
+          bgcolor: darkMode ? "#121212" : "#f5f7fa",
+          p: { xs: 2, sm: 4 },
+          transition: "background 0.5s ease",
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 4,
+          }}
+        >
+          <Typography
+            variant="h4"
+            fontWeight="bold"
+            sx={{ color: "text.primary" }}
+          >
+            Smart Home Dashboard
+          </Typography>
+
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            {dashboardData.lastRefreshed && (
+              <Typography variant="body2" color="text.secondary">
+                Last updated: {formatTimestamp(dashboardData.lastRefreshed)}
+              </Typography>
+            )}
+            <Tooltip title="Refresh dashboard">
+              <IconButton
+                onClick={handleRefresh}
+                disabled={loading || refreshing}
+                color="primary"
+              >
+                {refreshing ? <CircularProgress size={24} /> : <RefreshIcon />}
+              </IconButton>
+            </Tooltip>
+          </Box>
+        </Box>
+
+        {loading ? (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+              height: "50vh",
+              gap: 2,
+            }}
+          >
+            <CircularProgress size={48} />
+            <Typography variant="body1" color="text.secondary">
+              Loading dashboard data...
+            </Typography>
+          </Box>
+        ) : (
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            {/* Key Metrics */}
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                md={4}
+                component={motion.div}
+                variants={itemVariants}
+              >
+                <Card
+                  sx={{
+                    bgcolor: "background.paper",
+                    boxShadow: darkMode
+                      ? "0 8px 16px rgba(0,0,0,0.4)"
+                      : "0 8px 16px rgba(0,0,0,0.1)",
+                    borderRadius: 2,
+                    height: "100%",
+                    display: "flex",
+                    overflow: "hidden",
+                  }}
+                >
+                  <Box
                     sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        mb: 3,
+                      width: 15,
+                      bgcolor: "primary.main",
+                      display: "flex",
+                      alignItems: "stretch",
                     }}
-                >
-                    <Typography variant="h4">
-                        IoT Analytics Dashboard
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Select
-                            value={timeRange}
-                            onChange={(e) => setTimeRange(e.target.value)}
-                            sx={{ minWidth: 120 }}
-                            size="small"
-                        >
-                            <MenuItem value="day">Last 24h</MenuItem>
-                            <MenuItem value="week">Last Week</MenuItem>
-                            <MenuItem value="month">Last Month</MenuItem>
-                            <MenuItem value="year">Last Year</MenuItem>
-                        </Select>
-                        <Tooltip title="Refresh data">
-                            <IconButton
-                                onClick={refreshData}
-                                disabled={loading}
-                            >
-                                {loading ? (
-                                    <CircularProgress size={24} />
-                                ) : (
-                                    <RefreshIcon />
-                                )}
-                            </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Download report">
-                            <IconButton>
-                                <DownloadIcon />
-                            </IconButton>
-                        </Tooltip>
+                  />
+                  <CardContent sx={{ flex: 1, p: 3 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                      <Avatar
+                        sx={{
+                          bgcolor: "primary.main",
+                          color: "white",
+                          mr: 2,
+                        }}
+                      >
+                        <DevicesIcon />
+                      </Avatar>
+                      <Typography
+                        variant="h6"
+                        color="text.secondary"
+                        fontWeight="medium"
+                      >
+                        Total Devices
+                      </Typography>
                     </Box>
-                </Box>
-
-                <Tabs
-                    value={activeTab}
-                    onChange={handleTabChange}
-                    variant="scrollable"
-                    scrollButtons="auto"
-                    sx={{ mb: 3 }}
-                >
-                    <Tab label="Overview" />
-                    <Tab label="Energy" />
-                    <Tab label="Temperature" />
-                    <Tab label="Water" />
-                    <Tab label="Devices" />
-                </Tabs>
-
-                {/* Summary Cards */}
-                <Grid container spacing={3} sx={{ mb: 3 }}>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ borderLeft: 4, borderColor: '#0078D7' }}>
-                            <CardContent>
-                                <Box
-                                    sx={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                    }}
-                                >
-                                    <Box>
-                                        <Typography
-                                            color="textSecondary"
-                                            gutterBottom
-                                        >
-                                            Energy Consumption
-                                        </Typography>
-                                        <Typography
-                                            variant="h4"
-                                            component="div"
-                                        >
-                                            {stats.energy.current}{' '}
-                                            {stats.energy.unit}
-                                        </Typography>
-                                        <Typography
-                                            variant="body2"
-                                            color={
-                                                stats.energy.change < 0
-                                                    ? 'green'
-                                                    : 'error'
-                                            }
-                                        >
-                                            {stats.energy.change}% vs previous
-                                        </Typography>
-                                    </Box>
-                                    <ElectricBoltIcon
-                                        sx={{
-                                            fontSize: 40,
-                                            color: '#0078D7',
-                                            opacity: 0.8,
-                                        }}
-                                    />
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ borderLeft: 4, borderColor: '#00CC6A' }}>
-                            <CardContent>
-                                <Box
-                                    sx={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                    }}
-                                >
-                                    <Box>
-                                        <Typography
-                                            color="textSecondary"
-                                            gutterBottom
-                                        >
-                                            Water Usage
-                                        </Typography>
-                                        <Typography
-                                            variant="h4"
-                                            component="div"
-                                        >
-                                            {stats.water.current}{' '}
-                                            {stats.water.unit}
-                                        </Typography>
-                                        <Typography
-                                            variant="body2"
-                                            color={
-                                                stats.water.change < 0
-                                                    ? 'green'
-                                                    : 'error'
-                                            }
-                                        >
-                                            {stats.water.change}% vs previous
-                                        </Typography>
-                                    </Box>
-                                    <WaterDropIcon
-                                        sx={{
-                                            fontSize: 40,
-                                            color: '#00CC6A',
-                                            opacity: 0.8,
-                                        }}
-                                    />
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ borderLeft: 4, borderColor: '#E81123' }}>
-                            <CardContent>
-                                <Box
-                                    sx={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                    }}
-                                >
-                                    <Box>
-                                        <Typography
-                                            color="textSecondary"
-                                            gutterBottom
-                                        >
-                                            Indoor Temperature
-                                        </Typography>
-                                        <Typography
-                                            variant="h4"
-                                            component="div"
-                                        >
-                                            {stats.temperature.current}{' '}
-                                            {stats.temperature.unit}
-                                        </Typography>
-                                        <Typography
-                                            variant="body2"
-                                            color={
-                                                Math.abs(
-                                                    stats.temperature.change
-                                                ) <= 1
-                                                    ? 'green'
-                                                    : 'error'
-                                            }
-                                        >
-                                            {stats.temperature.change > 0
-                                                ? '+'
-                                                : ''}
-                                            {stats.temperature.change} from
-                                            optimal
-                                        </Typography>
-                                    </Box>
-                                    <ThermostatIcon
-                                        sx={{
-                                            fontSize: 40,
-                                            color: '#E81123',
-                                            opacity: 0.8,
-                                        }}
-                                    />
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{ borderLeft: 4, borderColor: '#FFB900' }}>
-                            <CardContent>
-                                <Box
-                                    sx={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                    }}
-                                >
-                                    <Box>
-                                        <Typography
-                                            color="textSecondary"
-                                            gutterBottom
-                                        >
-                                            Connected Devices
-                                        </Typography>
-                                        <Typography
-                                            variant="h4"
-                                            component="div"
-                                        >
-                                            {stats.devices.active}/
-                                            {stats.devices.total}
-                                        </Typography>
-                                        <Typography
-                                            variant="body2"
-                                            color={
-                                                stats.devices.alert > 0
-                                                    ? 'error'
-                                                    : 'green'
-                                            }
-                                        >
-                                            {stats.devices.alert}{' '}
-                                            {stats.devices.alert === 1
-                                                ? 'device'
-                                                : 'devices'}{' '}
-                                            need attention
-                                        </Typography>
-                                    </Box>
-                                    <LightbulbIcon
-                                        sx={{
-                                            fontSize: 40,
-                                            color: '#FFB900',
-                                            opacity: 0.8,
-                                        }}
-                                    />
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
-
-                {/* Main Charts */}
-                <Grid container spacing={3}>
-                    <Grid item xs={12} md={8}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                    Energy Consumption Over Time
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    color="textSecondary"
-                                    gutterBottom
-                                >
-                                    {timeRange === 'day'
-                                        ? 'Hourly'
-                                        : timeRange === 'week'
-                                        ? 'Daily'
-                                        : 'Weekly'}{' '}
-                                    power usage ({stats.energy.unit})
-                                </Typography>
-                                <ResponsiveContainer width="100%" height={300}>
-                                    <AreaChart data={energyData}>
-                                        <defs>
-                                            <linearGradient
-                                                id="colorUsage"
-                                                x1="0"
-                                                y1="0"
-                                                x2="0"
-                                                y2="1"
-                                            >
-                                                <stop
-                                                    offset="5%"
-                                                    stopColor="#0078D7"
-                                                    stopOpacity={0.8}
-                                                />
-                                                <stop
-                                                    offset="95%"
-                                                    stopColor="#0078D7"
-                                                    stopOpacity={0.1}
-                                                />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="date" />
-                                        <YAxis />
-                                        <RechartsTooltip />
-                                        <Legend />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="usage"
-                                            stroke="#0078D7"
-                                            fillOpacity={1}
-                                            fill="url(#colorUsage)"
-                                            name="Energy (kWh)"
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12} md={4}>
-                        <Card sx={{ height: '100%' }}>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                    Energy Distribution by Device Type
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    color="textSecondary"
-                                    gutterBottom
-                                >
-                                    Consumption percentage by category
-                                </Typography>
-                                <Box
-                                    sx={{
-                                        height: 300,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}
-                                >
-                                    <ResponsiveContainer
-                                        width="100%"
-                                        height={280}
-                                    >
-                                        <PieChart>
-                                            <Pie
-                                                data={deviceData}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={60}
-                                                outerRadius={80}
-                                                paddingAngle={5}
-                                                dataKey="value"
-                                                label
-                                            >
-                                                {deviceData.map(
-                                                    (entry, index) => (
-                                                        <Cell
-                                                            key={`cell-${index}`}
-                                                            fill={entry.color}
-                                                        />
-                                                    )
-                                                )}
-                                            </Pie>
-                                            <RechartsTooltip />
-                                            <Legend />
-                                        </PieChart>
-                                    </ResponsiveContainer>
-                                </Box>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12} md={6}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                    Temperature Monitoring
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    color="textSecondary"
-                                    gutterBottom
-                                >
-                                    Indoor vs outdoor temperature (°C)
-                                </Typography>
-                                <ResponsiveContainer width="100%" height={280}>
-                                    <LineChart data={temperatureData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="time" />
-                                        <YAxis />
-                                        <RechartsTooltip />
-                                        <Legend />
-                                        <Line
-                                            type="monotone"
-                                            dataKey="indoor"
-                                            stroke="#E81123"
-                                            strokeWidth={2}
-                                            dot={{ r: 4 }}
-                                            name="Indoor"
-                                        />
-                                        <Line
-                                            type="monotone"
-                                            dataKey="outdoor"
-                                            stroke="#00CC6A"
-                                            strokeWidth={2}
-                                            dot={{ r: 4 }}
-                                            name="Outdoor"
-                                        />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid item xs={12} md={6}>
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                    Water Consumption
-                                </Typography>
-                                <Typography
-                                    variant="body2"
-                                    color="textSecondary"
-                                    gutterBottom
-                                >
-                                    Daily water usage (liters)
-                                </Typography>
-                                <ResponsiveContainer width="100%" height={280}>
-                                    <BarChart data={waterData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="date" />
-                                        <YAxis />
-                                        <RechartsTooltip />
-                                        <Legend />
-                                        <Bar
-                                            dataKey="usage"
-                                            fill="#00CC6A"
-                                            name="Water (L)"
-                                        />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
-
-                {/* Additional insights section */}
-                <Card sx={{ mt: 3 }}>
-                    <CardContent>
-                        <Typography variant="h6" gutterBottom>
-                            Energy Saving Insights
-                        </Typography>
-                        <Divider sx={{ mb: 2 }} />
-                        <Grid container spacing={2}>
-                            <Grid item xs={12} md={4}>
-                                <Paper variant="outlined" sx={{ p: 2 }}>
-                                    <Typography
-                                        variant="subtitle1"
-                                        fontWeight="bold"
-                                    >
-                                        HVAC Optimization
-                                    </Typography>
-                                    <Typography variant="body2">
-                                        The HVAC system is consuming 12% more
-                                        energy than optimal. Consider servicing
-                                        or adjusting temperature settings.
-                                    </Typography>
-                                </Paper>
-                            </Grid>
-                            <Grid item xs={12} md={4}>
-                                <Paper variant="outlined" sx={{ p: 2 }}>
-                                    <Typography
-                                        variant="subtitle1"
-                                        fontWeight="bold"
-                                    >
-                                        Water Usage Anomaly
-                                    </Typography>
-                                    <Typography variant="body2">
-                                        Detected unusual water consumption on
-                                        Saturday and Sunday. Possible leak or
-                                        unattended device.
-                                    </Typography>
-                                </Paper>
-                            </Grid>
-                            <Grid item xs={12} md={4}>
-                                <Paper variant="outlined" sx={{ p: 2 }}>
-                                    <Typography
-                                        variant="subtitle1"
-                                        fontWeight="bold"
-                                    >
-                                        Potential Savings
-                                    </Typography>
-                                    <Typography variant="body2">
-                                        Switching to smart lighting control
-                                        could save approximately 15% on your
-                                        lighting-related energy costs.
-                                    </Typography>
-                                </Paper>
-                            </Grid>
-                        </Grid>
-                        <Box
-                            sx={{
-                                mt: 2,
-                                display: 'flex',
-                                justifyContent: 'center',
-                            }}
-                        >
-                            <Button variant="contained" color="primary">
-                                View Detailed Analysis
-                            </Button>
-                        </Box>
-                    </CardContent>
+                    <Typography variant="h3" color="primary" fontWeight="bold">
+                      {dashboardData.totalDevices}
+                    </Typography>
+                    <Box
+                      sx={{
+                        mt: 2,
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Chip
+                        icon={<PowerIcon />}
+                        label={`${dashboardData.activeDevices} Active`}
+                        color="success"
+                        size="small"
+                        sx={{ mr: 1 }}
+                      />
+                      <Chip
+                        label={`${dashboardData.inactiveDevices} Inactive`}
+                        color="default"
+                        size="small"
+                      />
+                    </Box>
+                  </CardContent>
                 </Card>
-            </Box>
-        </>
-    )
-}
+              </Grid>
 
-export default Analytics
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                md={4}
+                component={motion.div}
+                variants={itemVariants}
+              >
+                <Card
+                  sx={{
+                    bgcolor: "background.paper",
+                    boxShadow: darkMode
+                      ? "0 8px 16px rgba(0,0,0,0.4)"
+                      : "0 8px 16px rgba(0,0,0,0.1)",
+                    borderRadius: 2,
+                    height: "100%",
+                    display: "flex",
+                    overflow: "hidden",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 15,
+                      bgcolor: "success.main",
+                      display: "flex",
+                      alignItems: "stretch",
+                    }}
+                  />
+                  <CardContent sx={{ flex: 1, p: 3 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                      <Avatar
+                        sx={{
+                          bgcolor: "success.main",
+                          color: "white",
+                          mr: 2,
+                        }}
+                      >
+                        <PowerIcon />
+                      </Avatar>
+                      <Typography
+                        variant="h6"
+                        color="text.secondary"
+                        fontWeight="medium"
+                      >
+                        Active Devices
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="h3"
+                      color="success.main"
+                      fontWeight="bold"
+                    >
+                      {dashboardData.activeDevices}
+                    </Typography>
+                    <Box sx={{ mt: 2 }}>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        gutterBottom
+                      >
+                        {dashboardData.totalDevices > 0
+                          ? `${Math.round(
+                              (dashboardData.activeDevices /
+                                dashboardData.totalDevices) *
+                                100
+                            )}% of all devices`
+                          : "No devices available"}
+                      </Typography>
+                      <LinearProgress
+                        variant="determinate"
+                        value={
+                          dashboardData.totalDevices > 0
+                            ? (dashboardData.activeDevices /
+                                dashboardData.totalDevices) *
+                              100
+                            : 0
+                        }
+                        color="success"
+                        sx={{ height: 8, borderRadius: 4 }}
+                      />
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid
+                item
+                xs={12}
+                sm={6}
+                md={4}
+                component={motion.div}
+                variants={itemVariants}
+              >
+                <Card
+                  sx={{
+                    bgcolor: "background.paper",
+                    boxShadow: darkMode
+                      ? "0 8px 16px rgba(0,0,0,0.4)"
+                      : "0 8px 16px rgba(0,0,0,0.1)",
+                    borderRadius: 2,
+                    height: "100%",
+                    display: "flex",
+                    overflow: "hidden",
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 15,
+                      bgcolor: "info.main",
+                      display: "flex",
+                      alignItems: "stretch",
+                    }}
+                  />
+                  <CardContent sx={{ flex: 1, p: 3 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                      <Avatar
+                        sx={{
+                          bgcolor: "info.main",
+                          color: "white",
+                          mr: 2,
+                        }}
+                      >
+                        <HistoryIcon />
+                      </Avatar>
+                      <Typography
+                        variant="h6"
+                        color="text.secondary"
+                        fontWeight="medium"
+                      >
+                        Activity Summary
+                      </Typography>
+                    </Box>
+                    <Typography
+                      variant="h3"
+                      color="info.main"
+                      fontWeight="bold"
+                    >
+                      {activityStats.total}
+                    </Typography>
+                    <Box
+                      sx={{
+                        mt: 2,
+                        display: "flex",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Chip
+                        label={`${activityStats.turnedOn} On Events`}
+                        color="success"
+                        size="small"
+                        sx={{ mr: 1 }}
+                      />
+                      <Chip
+                        label={`${activityStats.turnedOff} Off Events`}
+                        color="error"
+                        size="small"
+                      />
+                      <Chip
+                        label={`${activityStats.today} Today`}
+                        color="primary"
+                        size="small"
+                      />
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+
+            {/* Device Categories */}
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+              <Grid item xs={12} component={motion.div} variants={itemVariants}>
+                <Card
+                  sx={{
+                    bgcolor: "background.paper",
+                    boxShadow: darkMode
+                      ? "0 8px 16px rgba(0,0,0,0.4)"
+                      : "0 8px 16px rgba(0,0,0,0.1)",
+                    borderRadius: 2,
+                  }}
+                >
+                  <CardContent>
+                    <Typography
+                      variant="h6"
+                      fontWeight="bold"
+                      color="text.primary"
+                      gutterBottom
+                    >
+                      Device Categories
+                    </Typography>
+                    <Divider sx={{ mb: 3 }} />
+
+                    <Grid container spacing={2}>
+                      {dashboardData.deviceCategories.map((category, index) => (
+                        <Grid item xs={12} sm={6} md={4} key={index}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              mb: 1,
+                              p: 2,
+                              bgcolor: darkMode
+                                ? "rgba(255,255,255,0.05)"
+                                : "rgba(0,0,0,0.02)",
+                              borderRadius: 1,
+                            }}
+                          >
+                            <Avatar
+                              sx={{
+                                bgcolor: getDeviceTypeColor(category.name),
+                                color: "white",
+                                mr: 2,
+                                width: 40,
+                                height: 40,
+                              }}
+                            >
+                              {category.name.charAt(0)}
+                            </Avatar>
+                            <Box sx={{ flex: 1 }}>
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                }}
+                              >
+                                <Typography
+                                  variant="subtitle1"
+                                  fontWeight="medium"
+                                >
+                                  {category.name}
+                                </Typography>
+                                <Typography
+                                  variant="subtitle1"
+                                  fontWeight="bold"
+                                >
+                                  {category.active}/{category.total}
+                                </Typography>
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={category.percentage}
+                                sx={{
+                                  height: 6,
+                                  borderRadius: 3,
+                                  bgcolor: darkMode
+                                    ? "rgba(255,255,255,0.1)"
+                                    : "rgba(0,0,0,0.1)",
+                                  "& .MuiLinearProgress-bar": {
+                                    bgcolor: getDeviceTypeColor(category.name),
+                                  },
+                                }}
+                              />
+                            </Box>
+                          </Box>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+
+            {/* Recent Activities */}
+            <motion.div variants={itemVariants}>
+              <Card
+                sx={{
+                  bgcolor: "background.paper",
+                  boxShadow: darkMode
+                    ? "0 8px 16px rgba(0,0,0,0.4)"
+                    : "0 8px 16px rgba(0,0,0,0.1)",
+                  borderRadius: 2,
+                }}
+              >
+                <CardContent>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      mb: 2,
+                    }}
+                  >
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                      <Badge
+                        badgeContent={filteredActivities.length}
+                        color="primary"
+                        sx={{ mr: 2 }}
+                      >
+                        <AccessTimeIcon color="action" fontSize="large" />
+                      </Badge>
+                      <Typography
+                        variant="h6"
+                        fontWeight="bold"
+                        color="text.primary"
+                      >
+                        Recent Activities
+                      </Typography>
+                    </Box>
+
+                    <Box sx={{ display: "flex", gap: 1 }}>
+                      <Tooltip title="Filter activities">
+                        <Box>
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              setFilter(
+                                filter === "all"
+                                  ? "on"
+                                  : filter === "on"
+                                  ? "off"
+                                  : "all"
+                              )
+                            }
+                          >
+                            <FilterListIcon />
+                          </IconButton>
+                          <Chip
+                            label={
+                              filter === "all"
+                                ? "All"
+                                : filter === "on"
+                                ? "On Events"
+                                : "Off Events"
+                            }
+                            size="small"
+                            color={
+                              filter === "all"
+                                ? "default"
+                                : filter === "on"
+                                ? "success"
+                                : "error"
+                            }
+                            sx={{ ml: 1 }}
+                          />
+                        </Box>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                  <Divider sx={{ mb: 2 }} />
+
+                  {filteredActivities.length > 0 ? (
+                    <>
+                      {(showAllActivities
+                        ? filteredActivities
+                        : filteredActivities.slice(0, 5)
+                      ).map((activity, index) => (
+                        <Box
+                          key={index}
+                          component={motion.div}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                        >
+                          <Box
+                            sx={{
+                              p: 2,
+                              mb: 2,
+                              bgcolor: darkMode
+                                ? "rgba(255,255,255,0.05)"
+                                : "rgba(0,0,0,0.02)",
+                              borderRadius: 2,
+                              position: "relative",
+                              overflow: "hidden",
+                            }}
+                          >
+                            <Box
+                              sx={{
+                                position: "absolute",
+                                left: 0,
+                                top: 0,
+                                bottom: 0,
+                                width: 4,
+                                bgcolor: activity.turnedOffBy
+                                  ? "error.main"
+                                  : "success.main",
+                              }}
+                            />
+
+                            {/* Entry for Turned Off (only if both turnedOffBy & endTime exist) */}
+                            {activity.turnedOffBy && activity.endTime && (
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  mb: activity.startTime ? 2 : 0,
+                                }}
+                              >
+                                <Avatar
+                                  sx={{
+                                    bgcolor: "error.main",
+                                    width: 36,
+                                    height: 36,
+                                    mr: 2,
+                                  }}
+                                >
+                                  OFF
+                                </Avatar>
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography
+                                    variant="body1"
+                                    fontWeight="medium"
+                                  >
+                                    {activity.device.deviceType} turned OFF in{" "}
+                                    {activity.device.deviceLocation}
+                                  </Typography>
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      mt: 0.5,
+                                    }}
+                                  >
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                      sx={{ mr: 1 }}
+                                    >
+                                      by {activity.turnedOffBy}
+                                    </Typography>
+                                    <Chip
+                                      label={formatTimestamp(activity.endTime)}
+                                      size="small"
+                                      variant="outlined"
+                                      color="default"
+                                    />
+                                  </Box>
+                                </Box>
+                              </Box>
+                            )}
+
+                            {/* Entry for Turned On */}
+                            {activity.startTime && (
+                              <Box
+                                sx={{ display: "flex", alignItems: "center" }}
+                              >
+                                <Avatar
+                                  sx={{
+                                    bgcolor: "success.main",
+                                    width: 36,
+                                    height: 36,
+                                    mr: 2,
+                                  }}
+                                >
+                                  ON
+                                </Avatar>
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography
+                                    variant="body1"
+                                    fontWeight="medium"
+                                  >
+                                    {activity.device.deviceType} turned ON in{" "}
+                                    {activity.device.deviceLocation}
+                                  </Typography>
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      mt: 0.5,
+                                    }}
+                                  >
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                      sx={{ mr: 1 }}
+                                    >
+                                      by {activity.turnedOnBy}
+                                    </Typography>
+                                    <Chip
+                                      label={formatTimestamp(
+                                        activity.startTime
+                                      )}
+                                      size="small"
+                                      variant="outlined"
+                                      color="default"
+                                    />
+                                  </Box>
+                                </Box>
+                              </Box>
+                            )}
+                          </Box>
+                        </Box>
+                      ))}
+
+                      {filteredActivities.length > 5 && (
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "center",
+                            mt: 2,
+                          }}
+                        >
+                          <Button
+                            variant="outlined"
+                            onClick={() =>
+                              setShowAllActivities(!showAllActivities)
+                            }
+                          >
+                            {showAllActivities
+                              ? "Show Less"
+                              : `Show All (${filteredActivities.length})`}
+                          </Button>
+                        </Box>
+                      )}
+                    </>
+                  ) : (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        py: 4,
+                      }}
+                    >
+                      <NotificationsActiveIcon
+                        sx={{ fontSize: 48, color: "text.secondary", mb: 2 }}
+                      />
+                      <Typography
+                        variant="body1"
+                        color="text.secondary"
+                        align="center"
+                      >
+                        No recent activities to display.
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </Box>
+    </>
+  );
+};
+
+export default Dashboard;
