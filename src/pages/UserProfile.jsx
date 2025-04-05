@@ -1,4 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, act } from 'react'
+import Papa from 'papaparse'
+import yaml from 'js-yaml'
+import dayjs from 'dayjs'
+import { Select, MenuItem, FormControl, InputLabel } from '@mui/material'
+
 import {
     Box,
     Paper,
@@ -16,10 +21,17 @@ import {
     CardContent,
     Avatar,
 } from '@mui/material'
-import { Save, Lock } from '@mui/icons-material'
+import { Save, Lock, Upload } from '@mui/icons-material'
 import axios from 'axios'
 import NavBar from './NavBar'
-import { getUserRoute, changePasswordRoute } from '../utils/ApiRoutes'
+import {
+    getUserRoute,
+    changePasswordRoute,
+    getAllUsersRoute,
+    getRecentActivitiesRoute,
+    allDeviceRoute,
+    addDeviceLogsRoute,
+} from '../utils/ApiRoutes'
 import { jwtDecode } from 'jwt-decode'
 import { toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
@@ -47,6 +59,9 @@ const UserProfile = () => {
         confirmPassword: '',
     })
     const [errors, setErrors] = useState({})
+    const [activitiesInput, setActivitiesInput] = useState('')
+    const [fileUploadKey, setFileUploadKey] = useState(Date.now())
+    const [isSubmittingActivities, setIsSubmittingActivities] = useState(false)
 
     // Extract username from token
     const token = localStorage.getItem('token')
@@ -138,6 +153,180 @@ const UserProfile = () => {
                     error.response.data.message || 'Error changing password'
                 )
             }
+        }
+    }
+
+    const parseActivities = (content, fileType) => {
+        try {
+            let parsedData
+            if (fileType === 'csv') {
+                parsedData = Papa.parse(content, { header: true }).data
+            } else if (fileType === 'yaml' || fileType === 'yml') {
+                parsedData = yaml.load(content)
+            } else if (fileType === 'json') {
+                parsedData = JSON.parse(content)
+            } else {
+                throw new Error('Unsupported file format')
+            }
+
+            if (!Array.isArray(parsedData)) {
+                throw new Error('File must contain an array of activities')
+            }
+
+            return parsedData
+        } catch (error) {
+            throw new Error(`Error parsing ${fileType}: ${error.message}`)
+        }
+    }
+
+    const handleFileUpload = (event) => {
+        const file = event.target.files[0]
+        if (!file) return
+
+        const reader = new FileReader()
+        reader.onload = async (e) => {
+            try {
+                const content = e.target.result
+                let fileType = 'json'
+
+                if (file.name.endsWith('.csv')) {
+                    fileType = 'csv'
+                } else if (
+                    file.name.endsWith('.yaml') ||
+                    file.name.endsWith('.yml')
+                ) {
+                    fileType = 'yaml'
+                } else if (file.name.endsWith('.json')) {
+                    fileType = 'json'
+                } else {
+                    throw new Error('Unsupported file format')
+                }
+
+                const parsedData = parseActivities(content, fileType)
+                setActivitiesInput(JSON.stringify(parsedData, null, 2))
+            } catch (error) {
+                toast.error(`File processing error: ${error.message}`)
+            }
+        }
+        reader.readAsText(file)
+        setFileUploadKey(Date.now()) // Reset file input
+    }
+
+    const handleSubmitActivities = async () => {
+        if (!activitiesInput.trim()) {
+            toast.error('Please enter activities data or upload a file')
+            return
+        }
+
+        try {
+            setIsSubmittingActivities(true)
+            let activitiesToSubmit
+
+            // Try parsing as JSON first
+            try {
+                activitiesToSubmit = JSON.parse(activitiesInput)
+            } catch (jsonError) {
+                // If JSON fails, try parsing as YAML
+                try {
+                    activitiesToSubmit = yaml.load(activitiesInput)
+                } catch (yamlError) {
+                    throw new Error('Input is neither valid JSON nor YAML')
+                }
+            }
+
+            if (
+                !Array.isArray(activitiesToSubmit) ||
+                activitiesToSubmit.length === 0
+            ) {
+                throw new Error('Please provide a valid array of activities')
+            }
+
+            // Validate activities structure
+            const isValid = activitiesToSubmit.every(
+                (activity) =>
+                    activity.event &&
+                    activity.eventBy &&
+                    activity.eventTime &&
+                    activity.device
+            )
+
+            if (!isValid) {
+                throw new Error(
+                    'All activities must have description, type, and timestamp'
+                )
+            }
+            await axios.post(addDeviceLogsRoute, activitiesToSubmit)
+            toast.success('Activities submitted successfully')
+            setActivitiesInput('')
+        } catch (error) {
+            toast.error(error.response?.data?.message || error.message)
+        } finally {
+            setIsSubmittingActivities(false)
+        }
+    }
+
+    const [userFormat, setUserFormat] = useState('json')
+    const [activityFormat, setActivityFormat] = useState('json')
+    const [deviceFormat, setDeviceFormat] = useState('json')
+
+    const handleDownload = async (type, format) => {
+        let apiUrl
+        let fileLabel
+
+        switch (type) {
+            case 'users':
+                apiUrl = getAllUsersRoute
+                fileLabel = 'users'
+                break
+            case 'activities':
+                apiUrl = getRecentActivitiesRoute
+                fileLabel = 'activities'
+                break
+            case 'devices':
+                apiUrl = allDeviceRoute
+                fileLabel = 'devices'
+                break
+            default:
+                return
+        }
+
+        try {
+            const res = await axios.get(apiUrl)
+            const data = res.data
+
+            const downloadFormat = format
+            let output, fileType, fileExtension
+
+            switch (downloadFormat) {
+                case 'csv':
+                    output = Papa.unparse(data)
+                    fileType = 'text/csv'
+                    fileExtension = 'csv'
+                    break
+                case 'yaml':
+                    output = yaml.dump(data)
+                    fileType = 'text/yaml'
+                    fileExtension = 'yaml'
+                    break
+                default:
+                    output = JSON.stringify(data, null, 2)
+                    fileType = 'application/json'
+                    fileExtension = 'json'
+            }
+
+            const blob = new Blob([output], { type: fileType })
+            const url = URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `${fileLabel}_${dayjs().format(
+                'YYYYMMDD_HHmmss'
+            )}.${fileExtension}`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+        } catch (error) {
+            console.error(`Error downloading ${type}:`, error)
+            toast.error(`Failed to download ${type}`)
         }
     }
 
@@ -258,6 +447,58 @@ const UserProfile = () => {
                                 </Button>
                             </Box>
                         </Paper>
+                        <Card sx={{ mt: 3 }}>
+                            <CardContent>
+                                <Typography variant="h6" gutterBottom>
+                                    Submit Activities
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    multiline
+                                    rows={4}
+                                    variant="outlined"
+                                    placeholder="Enter activities in JSON or YAML format"
+                                    value={activitiesInput}
+                                    onChange={(e) =>
+                                        setActivitiesInput(e.target.value)
+                                    }
+                                    sx={{ mb: 2 }}
+                                />
+                                <input
+                                    key={fileUploadKey}
+                                    accept=".json,.yaml,.yml,.csv"
+                                    style={{ display: 'none' }}
+                                    id="activities-upload"
+                                    type="file"
+                                    onChange={handleFileUpload}
+                                />
+                                <label htmlFor="activities-upload">
+                                    <Button
+                                        variant="outlined"
+                                        component="span"
+                                        startIcon={<Upload />}
+                                        fullWidth
+                                        sx={{ mb: 2 }}
+                                    >
+                                        Upload File
+                                    </Button>
+                                </label>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    fullWidth
+                                    onClick={handleSubmitActivities}
+                                    disabled={
+                                        isSubmittingActivities ||
+                                        !activitiesInput.trim()
+                                    }
+                                >
+                                    {isSubmittingActivities
+                                        ? 'Submitting...'
+                                        : 'Submit Activities'}
+                                </Button>
+                            </CardContent>
+                        </Card>
                     </Grid>
 
                     {/* Right column - Profile summary */}
@@ -295,6 +536,93 @@ const UserProfile = () => {
                                 >
                                     {profile.email}
                                 </Typography>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent>
+                                <Typography variant="h6" gutterBottom>
+                                    Download Your Data
+                                </Typography>
+
+                                {/* Users */}
+                                <FormControl fullWidth sx={{ mb: 1 }}>
+                                    <InputLabel>Users Format</InputLabel>
+                                    <Select
+                                        value={userFormat}
+                                        label="Users Format"
+                                        onChange={(e) =>
+                                            setUserFormat(e.target.value)
+                                        }
+                                    >
+                                        <MenuItem value="json">JSON</MenuItem>
+                                        <MenuItem value="csv">CSV</MenuItem>
+                                        <MenuItem value="yaml">YAML</MenuItem>
+                                    </Select>
+                                </FormControl>
+                                <Button
+                                    fullWidth
+                                    variant="outlined"
+                                    sx={{ mb: 2 }}
+                                    onClick={() =>
+                                        handleDownload('users', userFormat)
+                                    }
+                                >
+                                    Download All Users
+                                </Button>
+
+                                {/* Activities */}
+                                <FormControl fullWidth sx={{ mb: 1 }}>
+                                    <InputLabel>Activities Format</InputLabel>
+                                    <Select
+                                        value={activityFormat}
+                                        label="Activities Format"
+                                        onChange={(e) =>
+                                            setActivityFormat(e.target.value)
+                                        }
+                                    >
+                                        <MenuItem value="json">JSON</MenuItem>
+                                        <MenuItem value="csv">CSV</MenuItem>
+                                        <MenuItem value="yaml">YAML</MenuItem>
+                                    </Select>
+                                </FormControl>
+                                <Button
+                                    fullWidth
+                                    variant="outlined"
+                                    sx={{ mb: 2 }}
+                                    onClick={() =>
+                                        handleDownload(
+                                            'activities',
+                                            activityFormat
+                                        )
+                                    }
+                                >
+                                    Download Recent Activities
+                                </Button>
+
+                                {/* Devices */}
+                                <FormControl fullWidth sx={{ mb: 1 }}>
+                                    <InputLabel>Devices Format</InputLabel>
+                                    <Select
+                                        value={deviceFormat}
+                                        label="Devices Format"
+                                        onChange={(e) =>
+                                            setDeviceFormat(e.target.value)
+                                        }
+                                    >
+                                        <MenuItem value="json">JSON</MenuItem>
+                                        <MenuItem value="csv">CSV</MenuItem>
+                                        <MenuItem value="yaml">YAML</MenuItem>
+                                    </Select>
+                                </FormControl>
+                                <Button
+                                    fullWidth
+                                    variant="outlined"
+                                    onClick={() =>
+                                        handleDownload('devices', deviceFormat)
+                                    }
+                                >
+                                    Download Devices List
+                                </Button>
                             </CardContent>
                         </Card>
                     </Grid>

@@ -27,3 +27,6 @@ export const getRecentActivitiesRoute = `${host}/api/devices/recent-activity`
 export const bulkCreateDeviceRoute = `${host}/api/devices/bulk-add`
 export const bulkDeleteDeviceRoute = `${host}/api/devices/bulk-delete`
 export const getLogsRoute = `${host}/api/devices/logs`
+
+// Device Logs Management
+export const addDeviceLogsRoute = `${host}/api/devices/setLogs`

@@ -16,6 +16,7 @@ import {
     TableRow,
     Paper,
 } from '@mui/material'
+import { useWebSocket } from '../context/WebSocketContext'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { toast } from 'react-toastify'
@@ -45,92 +46,115 @@ const Analytics = () => {
     const { deviceId } = useParams()
     const navigate = useNavigate()
     const { darkMode } = useDarkMode()
+    const { isConnected, subscribe } = useWebSocket()
 
     const [loading, setLoading] = useState(true)
     const [analyticsData, setAnalyticsData] = useState([])
+    const [uptime, setUptime] = useState('Calculating...')
 
+    const fetchAnalytics = async () => {
+        try {
+            const response = await axios.get(
+                `${getRecentActivitiesRoute}/${deviceId}`
+            )
+            setAnalyticsData(response.data)
+        } catch (error) {
+            toast.error('Error fetching analytics data')
+            console.error(error)
+        } finally {
+            setLoading(false)
+        }
+    }
     useEffect(() => {
-        const fetchAnalytics = async () => {
-            try {
-                const response = await axios.get(
-                    `${getRecentActivitiesRoute}/${deviceId}`
-                )
-                setAnalyticsData(response.data)
-            } catch (error) {
-                toast.error('Error fetching analytics data')
-                console.error(error)
-            } finally {
-                setLoading(false)
-            }
+        fetchAnalytics()
+
+        if (!isConnected) {
+            console.log('WebSocket not connected')
+            return
         }
 
-        fetchAnalytics()
-    }, [deviceId])
+        console.log('Subscribing to WebSocket topics')
 
-    const chartData = analyticsData.map((entry) => ({
-        time: new Date(entry.eventTime).toLocaleTimeString(),
-        status: entry.event === 'ON' ? 1 : 0,
-    }))
-    function calculateUptime(deviceLogs) {
-        if (!Array.isArray(deviceLogs) || deviceLogs.length === 0) return '0s'
-
-        // ✅ Sort logs by eventTime (ascending order)
-        const sortedLogs = [...deviceLogs].sort(
-            (a, b) => new Date(a.eventTime) - new Date(b.eventTime)
+        const activitySubscription = subscribe(
+            '/contrlz/recent-activity',
+            (data) => {
+                console.log('Activity data received:', data)
+                const newActivities =
+                    typeof data === 'string' ? JSON.parse(data) : data
+                setAnalyticsData([...newActivities])
+            }
         )
 
-        let lastOnTime = null
+        return () => {
+            if (activitySubscription) activitySubscription.unsubscribe()
+        }
+    }, [isConnected])
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setUptime(formatUptime(calculateUptimeSeconds(analyticsData)))
+        }, 1000)
+
+        return () => clearInterval(interval)
+    }, [analyticsData])
+
+    const calculateUptimeSeconds = (logs) => {
+        if (!Array.isArray(logs) || logs.length === 0) return 0
+
+        const sortedLogs = [...logs].sort(
+            (a, b) => new Date(a.eventTime) - new Date(b.eventTime)
+        )
         let totalUptimeSeconds = 0
+        let lastOnTime = null
 
         sortedLogs.forEach((log) => {
-            const logTime = new Date(log.eventTime)
-
+            const time = new Date(log.eventTime)
             if (log.event === 'ON') {
-                lastOnTime = logTime
+                lastOnTime = time
             } else if (log.event === 'OFF' && lastOnTime) {
-                totalUptimeSeconds += (logTime - lastOnTime) / 1000 // Convert ms to sec
-                lastOnTime = null // Reset after OFF
+                totalUptimeSeconds += (time - lastOnTime) / 1000
+                lastOnTime = null
             }
         })
 
-        // ✅ If the last event was "ON", assume it's still running till now
         if (lastOnTime) {
             totalUptimeSeconds += (new Date() - lastOnTime) / 1000
         }
 
-        return formatUptime(totalUptimeSeconds)
+        return totalUptimeSeconds
     }
 
-    function formatUptime(seconds) {
+    const formatUptime = (seconds) => {
         const units = [
-            { label: 'month', value: 2592000 }, // 30 days
-            { label: 'week', value: 604800 }, // 7 days
+            { label: 'month', value: 2592000 },
+            { label: 'week', value: 604800 },
             { label: 'day', value: 86400 },
             { label: 'hour', value: 3600 },
             { label: 'minute', value: 60 },
             { label: 'second', value: 1 },
         ]
 
-        let uptimeString = ''
+        let str = ''
         for (const unit of units) {
             const count = Math.floor(seconds / unit.value)
             if (count > 0) {
-                uptimeString += `${count} ${unit.label}${count > 1 ? 's' : ''} `
+                str += `${count} ${unit.label}${count > 1 ? 's' : ''} `
                 seconds %= unit.value
             }
         }
 
-        return uptimeString.trim() || '0 seconds' // Default case if no time recorded
+        return str.trim() || '0 seconds'
     }
 
-    console.log(analyticsData)
+    const chartData = analyticsData.map((entry) => ({
+        time: new Date(entry.eventTime).toLocaleTimeString(),
+        status: entry.event === 'ON' ? 1 : 0,
+    }))
+
     const totalEvents = analyticsData.length
     const onEvents = analyticsData.filter((e) => e.event === 'ON').length
     const offEvents = totalEvents - onEvents
-    const uptimePercentage = calculateUptime(analyticsData)
-
     const formatTimestamp = (timestamp) => new Date(timestamp).toLocaleString()
-
     const deviceInfo = analyticsData[0]?.device
 
     return (
@@ -182,7 +206,6 @@ const Analytics = () => {
                     </Box>
                 ) : (
                     <Grid container spacing={3}>
-                        {/* Summary Cards */}
                         <Grid item xs={12} sm={6} md={3}>
                             <Card
                                 sx={{
@@ -264,13 +287,12 @@ const Analytics = () => {
                                         Uptime
                                     </Typography>
                                     <Typography variant="h4" color="info.main">
-                                        {uptimePercentage}
+                                        {uptime}
                                     </Typography>
                                 </CardContent>
                             </Card>
                         </Grid>
 
-                        {/* Chart */}
                         <Grid item xs={12}>
                             <Card
                                 sx={{
@@ -291,18 +313,14 @@ const Analytics = () => {
                                         width="100%"
                                         height={300}
                                     >
-                                        <LineChart
-                                            width={600}
-                                            height={300}
-                                            data={chartData}
-                                        >
+                                        <LineChart data={chartData}>
                                             <CartesianGrid strokeDasharray="3 3" />
                                             <XAxis dataKey="time" />
                                             <YAxis
                                                 domain={[0, 1]}
                                                 ticks={[0, 1]}
-                                                tickFormatter={(value) =>
-                                                    value === 1 ? 'ON' : 'OFF'
+                                                tickFormatter={(val) =>
+                                                    val === 1 ? 'ON' : 'OFF'
                                                 }
                                             />
                                             <Tooltip />
@@ -320,7 +338,6 @@ const Analytics = () => {
                             </Card>
                         </Grid>
 
-                        {/* Event History Table */}
                         <Grid item xs={12}>
                             <Card
                                 sx={{

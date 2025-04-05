@@ -102,14 +102,17 @@ export default function Reports() {
     return (
         <>
             <NavBar />
+            <Typography
+                variant="h4"
+                fontWeight="bold"
+                sx={{ color: 'text.primary', p: 2 }}
+            >
+                Device Activity Reports
+            </Typography>
             <Card
                 sx={{ bgcolor: 'background.paper', boxShadow: 3, p: 3, m: 2 }}
             >
                 <CardContent>
-                    <Typography variant="h6" fontWeight="bold" gutterBottom>
-                        Device Activity Reports
-                    </Typography>
-
                     <Grid container spacing={2}>
                         <Grid item xs={12} md={4}>
                             <TextField

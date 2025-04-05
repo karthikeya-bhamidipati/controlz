@@ -21,6 +21,8 @@ import {
     Menu,
     useMediaQuery,
 } from '@mui/material'
+import * as Papa from 'papaparse'
+import * as YAML from 'yaml'
 import {
     Edit as EditIcon,
     Delete as DeleteIcon,
@@ -32,6 +34,7 @@ import {
     Devices as DefaultIcon,
     BarChart as AnalyticsIcon,
     MoreVert as MoreVertIcon,
+    CloudUpload as UploadIcon,
 } from '@mui/icons-material'
 import axios from 'axios'
 import { jwtDecode } from 'jwt-decode'
@@ -201,28 +204,129 @@ const DeviceManagement = () => {
             console.error(error)
         }
     }
+    const parseCSV = (content) => {
+        const results = Papa.parse(content, {
+            header: true,
+            skipEmptyLines: true,
+            transformHeader: (h) => h.trim().toLowerCase(),
+        })
+
+        if (results.errors.length > 0) {
+            throw new Error('CSV parsing error: ' + results.errors[0].message)
+        }
+
+        return results.data.map((row) => ({
+            deviceType: row.devicetype,
+            deviceLocation: row.devicelocation,
+            deviceMac: row.devicemac,
+        }))
+    }
+
+    const parseYAML = (content) => {
+        try {
+            const parsed = YAML.parse(content)
+            if (!Array.isArray(parsed)) {
+                throw new Error('YAML must contain an array of devices')
+            }
+            return parsed
+        } catch (error) {
+            throw new Error('YAML parsing error: ' + error.message)
+        }
+    }
+
+    const handleFileUpload = (event) => {
+        const file = event.target.files[0]
+        if (!file) return
+
+        const reader = new FileReader()
+        reader.onload = async (e) => {
+            try {
+                const content = e.target.result
+                let parsedData
+
+                if (file.name.endsWith('.csv')) {
+                    parsedData = parseCSV(content)
+                } else if (
+                    file.name.endsWith('.yaml') ||
+                    file.name.endsWith('.yml')
+                ) {
+                    parsedData = parseYAML(content)
+                } else if (file.name.endsWith('.json')) {
+                    parsedData = JSON.parse(content)
+                } else {
+                    throw new Error('Unsupported file format')
+                }
+
+                if (!Array.isArray(parsedData)) {
+                    throw new Error('File must contain an array of devices')
+                }
+
+                setBulkAddDialog((prev) => ({
+                    ...prev,
+                    data: JSON.stringify(parsedData, null, 2),
+                }))
+            } catch (error) {
+                toast.error(`File processing error: ${error.message}`)
+            }
+        }
+        reader.readAsText(file)
+    }
 
     const handleBulkAddSubmit = async () => {
         try {
             const cleanedInput = bulkAddDialog.data.trim()
-            const devicesToAdd = JSON.parse(cleanedInput)
-            if (!Array.isArray(devicesToAdd) || devicesToAdd.length === 0) {
-                toast.error('Invalid input: Please provide a valid JSON array')
-                return
-            }
-            for (const device of devicesToAdd) {
-                if (
-                    !device.deviceType ||
-                    !device.deviceLocation ||
-                    !device.deviceMac
-                ) {
-                    toast.error(
-                        'Each device must have deviceType, deviceLocation, and deviceMac'
-                    )
-                    return
+            let devicesToAdd
+
+            // Try parsing as JSON first
+            try {
+                devicesToAdd = JSON.parse(cleanedInput)
+            } catch (jsonError) {
+                // If JSON fails, try parsing as YAML
+                try {
+                    devicesToAdd = YAML.parse(cleanedInput)
+                } catch (yamlError) {
+                    throw new Error('Input is neither valid JSON nor YAML')
                 }
             }
-            await axios.post(bulkCreateDeviceRoute, devicesToAdd)
+
+            if (!Array.isArray(devicesToAdd) || devicesToAdd.length === 0) {
+                toast.error(
+                    'Invalid input: Please provide a valid array of devices'
+                )
+                return
+            }
+
+            const isValid = devicesToAdd.every(
+                (device) =>
+                    (device.deviceType === 'FAN' || 'LIGHT') &&
+                    device.deviceLocation &&
+                    device.deviceMac
+            )
+
+            if (!isValid) {
+                toast.error(
+                    'All devices must have deviceType, deviceLocation, and deviceMac fields'
+                )
+                return
+            }
+            // Sanitize user input to only include required fields
+            const sanitizedDevices = devicesToAdd.map(
+                ({
+                    deviceType,
+                    deviceLocation,
+                    deviceMac,
+                    status,
+                    lastUpdated,
+                }) => ({
+                    deviceType,
+                    deviceLocation,
+                    deviceMac,
+                    status,
+                    lastUpdated,
+                })
+            )
+
+            await axios.post(bulkCreateDeviceRoute, sanitizedDevices)
             setBulkAddDialog({ open: false, data: '' })
             toast.success('Devices added successfully')
         } catch (error) {
@@ -660,17 +764,30 @@ const DeviceManagement = () => {
                     <DialogTitle>Bulk Add Devices</DialogTitle>
                     <DialogContent sx={{ pt: 3, pb: 2 }}>
                         <Box
-                            component="form"
                             sx={{
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: 3,
                             }}
                         >
+                            <Button
+                                variant="contained"
+                                component="label"
+                                startIcon={<UploadIcon />}
+                                sx={{ alignSelf: 'flex-start' }}
+                            >
+                                Upload File
+                                <input
+                                    type="file"
+                                    hidden
+                                    accept=".json,.csv,.yaml,.yml"
+                                    onChange={handleFileUpload}
+                                />
+                            </Button>
                             <TextField
-                                label="Enter Devices JSON"
+                                label="Enter Devices (JSON/YAML) or upload file"
                                 multiline
-                                rows={4}
+                                rows={8}
                                 fullWidth
                                 value={bulkAddDialog.data}
                                 onChange={(e) =>
@@ -679,14 +796,21 @@ const DeviceManagement = () => {
                                         data: e.target.value,
                                     })
                                 }
-                                placeholder='[{"deviceType": "LIGHT", "deviceLocation": "Room1", "deviceMac": "00:1A:2B:3C:4D:5E"}]'
+                                placeholder={
+                                    'JSON format:\n' +
+                                    '[{"deviceType": "LIGHT", "deviceLocation": "Room1", "deviceMac": "00:1A:2B:3C:4D:5E"}]\n\n' +
+                                    'YAML format:\n' +
+                                    '- deviceType: LIGHT\n' +
+                                    '  deviceLocation: Room1\n' +
+                                    '  deviceMac: "00:1A:2B:3C:4D:5E"\n\n' +
+                                    'CSV format (upload file):\n' +
+                                    'deviceType,deviceLocation,deviceMac\n' +
+                                    'LIGHT,Room1,00:1A:2B:3C:4D:5E'
+                                }
                             />
                             <Typography variant="caption" color="textSecondary">
-                                Please provide a JSON array of devices, e.g.: [
-                                {'{'} "deviceType": "LIGHT", "deviceLocation":
-                                "Room1", "deviceMac": "00:1A:2B:3C:4D:5E" {'}'},{' '}
-                                {'{'} "deviceType": "FAN", "deviceLocation":
-                                "Room2", "deviceMac": "00:1A:2B:3C:4D:5F" {'}'}]
+                                Supported formats: JSON, YAML, CSV (via file
+                                upload)
                             </Typography>
                         </Box>
                     </DialogContent>

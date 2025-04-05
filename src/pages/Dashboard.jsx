@@ -172,7 +172,6 @@ const Dashboard = () => {
         inactiveDevices: 0,
         recentActivities: [],
         deviceCategories: [],
-        lastRefreshed: null,
     })
     const [showAllActivities, setShowAllActivities] = useState(false)
     const [filter, setFilter] = useState('all')
@@ -215,7 +214,6 @@ const Dashboard = () => {
                 inactiveDevices: totalDevices - activeDevices,
                 recentActivities,
                 deviceCategories,
-                lastRefreshed: new Date(),
             })
         } catch (error) {
             console.error('Error fetching initial data:', error)
@@ -245,7 +243,6 @@ const Dashboard = () => {
                 activeDevices,
                 inactiveDevices: totalDevices - activeDevices,
                 deviceCategories,
-                lastRefreshed: new Date(),
             }))
         })
 
@@ -273,7 +270,6 @@ const Dashboard = () => {
                     return {
                         ...prev,
                         recentActivities: combinedActivities,
-                        lastRefreshed: new Date(),
                     }
                 })
             }
@@ -374,12 +370,6 @@ const Dashboard = () => {
                     >
                         Dashboard
                     </Typography>
-                    {dashboardData.lastRefreshed && (
-                        <Typography variant="body1" color="text.secondary">
-                            Last updated:{' '}
-                            {formatTimestamp(dashboardData.lastRefreshed)}
-                        </Typography>
-                    )}
                 </Box>
 
                 {loading ? (

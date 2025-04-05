@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import * as Papa from 'papaparse'
+import * as YAML from 'yaml'
 import {
     Box,
     Table,
@@ -33,6 +35,7 @@ import {
     Delete,
     MoreVert,
     PersonOff,
+    CloudUpload as UploadIcon,
 } from '@mui/icons-material'
 import axios from 'axios'
 import NavBar from './NavBar'
@@ -220,31 +223,127 @@ const UserManagement = () => {
     }
 
     const loggedInUsername = getLoggedInUsername()
+    const parseCSV = (content) => {
+        const results = Papa.parse(content, {
+            header: true,
+            skipEmptyLines: true,
+            transformHeader: (h) => h.trim().toLowerCase(),
+        })
+
+        if (results.errors.length > 0) {
+            throw new Error('CSV parsing error: ' + results.errors[0].message)
+        }
+
+        return results.data.map((row) => ({
+            username: row.username,
+            role: row.role || 'USER', // Default to USER if role not specified
+        }))
+    }
+
+    const parseYAML = (content) => {
+        try {
+            const parsed = YAML.parse(content)
+            if (!Array.isArray(parsed)) {
+                throw new Error('YAML must contain an array of users')
+            }
+            return parsed
+        } catch (error) {
+            throw new Error('YAML parsing error: ' + error.message)
+        }
+    }
+
+    const handleFileUpload = (event) => {
+        const file = event.target.files[0]
+        if (!file) return
+
+        const reader = new FileReader()
+        reader.onload = async (e) => {
+            try {
+                const content = e.target.result
+                let parsedData
+
+                if (file.name.endsWith('.csv')) {
+                    parsedData = parseCSV(content)
+                } else if (
+                    file.name.endsWith('.yaml') ||
+                    file.name.endsWith('.yml')
+                ) {
+                    parsedData = parseYAML(content)
+                } else if (file.name.endsWith('.json')) {
+                    parsedData = JSON.parse(content)
+                } else {
+                    throw new Error('Unsupported file format')
+                }
+
+                if (!Array.isArray(parsedData)) {
+                    throw new Error('File must contain an array of users')
+                }
+
+                setBulkUsersData(JSON.stringify(parsedData, null, 2))
+            } catch (error) {
+                toast.error(`File processing error: ${error.message}`)
+            }
+        }
+        reader.readAsText(file)
+    }
 
     const handleBulkAddUsers = async () => {
         try {
-            let parsedData
+            const cleanedInput = bulkUsersData.trim()
+            let usersToAdd
+
+            // Try parsing as JSON first
             try {
-                parsedData = JSON.parse(bulkUsersData)
-                if (!Array.isArray(parsedData))
-                    throw new Error('Input must be an array')
-            } catch (e) {
+                usersToAdd = JSON.parse(cleanedInput)
+            } catch (jsonError) {
+                // If JSON fails, try parsing as YAML
+                try {
+                    usersToAdd = YAML.parse(cleanedInput)
+                } catch (yamlError) {
+                    throw new Error('Input is neither valid JSON nor YAML')
+                }
+            }
+
+            if (!Array.isArray(usersToAdd) || usersToAdd.length === 0) {
                 toast.error(
-                    'Invalid JSON format. Please provide a valid array.'
+                    'Invalid input: Please provide a valid array of users'
                 )
                 return
             }
 
-            await axios.post(bulkCreateUserRoute, parsedData)
+            const isValid = usersToAdd.every(
+                (user) =>
+                    user.username &&
+                    (user.role === 'ADMIN' || user.role === 'USER')
+            )
+
+            if (!isValid) {
+                toast.error(
+                    'All users must have username and valid role (ADMIN or USER)'
+                )
+                return
+            }
+            // Sanitize user input to only include required fields
+            const sanitizedUsers = usersToAdd.map(
+                ({ email, username, password, role }) => ({
+                    email: email || null,
+                    username,
+                    password: password || null,
+                    role,
+                })
+            )
+
+            await axios.post(bulkCreateUserRoute, sanitizedUsers)
 
             const response = await axios.get(getAllUsersRoute)
             setUsers(response.data)
             setBulkAddDialogOpen(false)
             setBulkUsersData('')
-            toast.success('Bulk users created successfully')
+            toast.success('Users added successfully')
         } catch (error) {
             const message =
-                error.response?.data?.message || 'Error bulk creating users'
+                error.response?.data?.message ||
+                'Error adding users: ' + error.message
             toast.error(message)
         }
     }
@@ -312,7 +411,12 @@ const UserManagement = () => {
         <>
             <NavBar />
             <Box sx={{ p: 3 }}>
-                <Typography variant="h4" gutterBottom>
+                <Typography
+                    variant="h4"
+                    fontWeight="bold"
+                    sx={{ color: 'text.primary' }}
+                    gutterBottom
+                >
                     User Management
                 </Typography>
                 <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
@@ -748,29 +852,52 @@ const UserManagement = () => {
                     <DialogTitle>Bulk Add Users</DialogTitle>
                     <DialogContent sx={{ pt: 3, pb: 2 }}>
                         <Box
-                            component="form"
                             sx={{
                                 display: 'flex',
                                 flexDirection: 'column',
                                 gap: 3,
                             }}
                         >
+                            <Button
+                                variant="contained"
+                                component="label"
+                                startIcon={<UploadIcon />}
+                                sx={{ alignSelf: 'flex-start' }}
+                            >
+                                Upload File
+                                <input
+                                    type="file"
+                                    hidden
+                                    accept=".json,.csv,.yaml,.yml"
+                                    onChange={handleFileUpload}
+                                />
+                            </Button>
                             <TextField
-                                label="Paste JSON data here"
+                                label="Enter Users (JSON/YAML) or upload file"
                                 multiline
                                 rows={8}
+                                fullWidth
                                 value={bulkUsersData}
                                 onChange={(e) =>
                                     setBulkUsersData(e.target.value)
                                 }
-                                fullWidth
-                                variant="outlined"
+                                placeholder={
+                                    'JSON format:\n' +
+                                    '[{"username": "user1", "role": "USER"}, {"username": "user2", "role": "ADMIN"}]\n\n' +
+                                    'YAML format:\n' +
+                                    '- username: user1\n' +
+                                    '  role: USER\n' +
+                                    '- username: user2\n' +
+                                    '  role: ADMIN\n\n' +
+                                    'CSV format (upload file):\n' +
+                                    'username,role\n' +
+                                    'user1,USER\n' +
+                                    'user2,ADMIN'
+                                }
                             />
                             <Typography variant="caption" color="textSecondary">
-                                Please provide a JSON array of objects, e.g.: [
-                                {'{'} "username": "user1", "role": "USER" {'}'},{' '}
-                                {'{'} "username": "user2", "role": "ADMIN" {'}'}
-                                ]
+                                Supported formats: JSON, YAML, CSV (via file
+                                upload)
                             </Typography>
                         </Box>
                     </DialogContent>
@@ -786,7 +913,7 @@ const UserManagement = () => {
                             onClick={handleBulkAddUsers}
                             sx={{ minWidth: 100 }}
                         >
-                            Submit
+                            Add Users
                         </Button>
                     </DialogActions>
                 </Dialog>
