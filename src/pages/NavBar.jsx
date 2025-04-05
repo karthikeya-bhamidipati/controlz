@@ -23,7 +23,6 @@ import {
 import {
     Menu as MenuIcon,
     Devices,
-    Analytics,
     People,
     Home,
     AccountCircle,
@@ -31,6 +30,7 @@ import {
     KeyboardArrowDown,
     DarkMode,
     LightMode,
+    Report,
 } from '@mui/icons-material'
 import ControlCameraIcon from '@mui/icons-material/ControlCamera'
 import { useDarkMode } from '../context/DarkModeContext'
@@ -39,7 +39,7 @@ import { jwtDecode } from 'jwt-decode'
 
 const NavBar = () => {
     const theme = useTheme()
-    const { darkMode, setDarkMode } = useDarkMode()
+    const { darkMode, toggleDarkMode } = useDarkMode()
     const location = useLocation()
     const isMobile = useMediaQuery(theme.breakpoints.down('md'))
     const [mobileOpen, setMobileOpen] = useState(false)
@@ -54,8 +54,8 @@ const NavBar = () => {
 
     const navItems = [
         { text: 'Dashboard', path: '/', icon: <Home /> },
+        { text: 'Reports', path: '/reports', icon: <Report /> },
         { text: 'Devices', path: '/devices', icon: <Devices /> },
-        { text: 'Analytics', path: '/analytics', icon: <Analytics /> },
         ...(user.role === 'ADMIN'
             ? [{ text: 'Users', path: '/users', icon: <People /> }]
             : []),
@@ -165,12 +165,6 @@ const NavBar = () => {
             </List>
         </Box>
     )
-
-    const notifications = [
-        { id: 1, text: 'New device connected', time: '2 min ago' },
-        { id: 2, text: 'System update available', time: '1 hour ago' },
-        { id: 3, text: 'Weekly analytics report', time: 'Yesterday' },
-    ]
 
     return (
         <AppBar
@@ -287,7 +281,7 @@ const NavBar = () => {
                     {/* Theme Toggle */}
                     <Tooltip title={darkMode ? 'Light Mode' : 'Dark Mode'}>
                         <IconButton
-                            onClick={() => setDarkMode(!darkMode)}
+                            onClick={() => toggleDarkMode(!darkMode)}
                             sx={{
                                 color: darkMode ? 'text.primary' : 'white',
                             }}

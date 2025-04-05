@@ -51,7 +51,6 @@ export const WebSocketProvider = ({ children }) => {
             const subscription = stompClientRef.current.subscribe(
                 topic,
                 (message) => {
-                    console.log('Received message:', message.body)
                     callback(JSON.parse(message.body))
                 }
             )

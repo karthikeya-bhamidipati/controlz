@@ -18,7 +18,7 @@ import {
 } from '@mui/icons-material'
 import ControlCameraIcon from '@mui/icons-material/ControlCamera'
 import axios from 'axios'
-import { toast, ToastContainer } from 'react-toastify'
+import { toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import { motion } from 'framer-motion'
 import { useDarkMode } from '../context/DarkModeContext'
@@ -26,24 +26,8 @@ import { loginRoute, registerRoute } from '../utils/ApiRoutes'
 import { useNavigate } from 'react-router-dom'
 
 const LoginRegister = () => {
-    // Configure axios interceptor for authentication
-    useEffect(() => {
-        const interceptor = axios.interceptors.request.use((config) => {
-            const token = localStorage.getItem('token')
-            if (token) {
-                config.headers.Authorization = `Bearer ${token}`
-            }
-            return config
-        })
-
-        // Cleanup interceptor on component unmount
-        return () => {
-            axios.interceptors.request.eject(interceptor)
-        }
-    }, [])
-
     const [activeForm, setActiveForm] = useState('login')
-    const { darkMode, setDarkMode } = useDarkMode()
+    const { darkMode, toggleDarkMode } = useDarkMode()
     const [showPassword, setShowPassword] = useState(false)
     const [formErrors, setFormErrors] = useState({
         login: { username: '', password: '' },
@@ -66,16 +50,6 @@ const LoginRegister = () => {
     const [formSubmitted, setFormSubmitted] = useState(false)
 
     const navigate = useNavigate()
-
-    const toastOptions = {
-        position: 'bottom-center',
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        theme: darkMode ? 'dark' : 'light',
-    }
 
     const handleChange = (e, form) => {
         const { name, value } = e.target
@@ -180,18 +154,19 @@ const LoginRegister = () => {
                     'Authorization'
                 ] = `Bearer ${token}`
 
-                toast.success('Login successful! Redirecting...', toastOptions)
+                toast.success('Login successful! Redirecting...')
 
                 // Delayed navigation for better UX
                 setTimeout(() => {
                     navigate('/')
-                }, 1500)
+                }, 1000)
             }
         } catch (error) {
             console.error('Login error:', error)
             const errorMessage =
-                error.response?.data?.message || 'Invalid login credentials'
-            toast.error(errorMessage, toastOptions)
+                error.response?.data?.message ||
+                'Server is not avaliable right now.'
+            toast.error(errorMessage)
         } finally {
             setLoading(false)
         }
@@ -208,10 +183,7 @@ const LoginRegister = () => {
             const { confirmPassword, ...signupPayload } = signupData
             await axios.post(registerRoute, signupPayload)
 
-            toast.success(
-                'Account created successfully! Please log in.',
-                toastOptions
-            )
+            toast.success('Account created successfully! Please log in.')
 
             // Clear form and switch to login
             setTimeout(() => {
@@ -225,8 +197,8 @@ const LoginRegister = () => {
             console.error('Signup error:', error)
             const errorMessage =
                 error.response?.data?.message ||
-                'Failed to create account. Please try again.'
-            toast.error(errorMessage, toastOptions)
+                'Server is not avaaliable right now.'
+            toast.error(errorMessage)
         } finally {
             setLoading(false)
         }
@@ -265,7 +237,7 @@ const LoginRegister = () => {
                 }
             >
                 <IconButton
-                    onClick={() => setDarkMode(!darkMode)}
+                    onClick={() => toggleDarkMode(!darkMode)}
                     aria-label={
                         darkMode
                             ? 'Switch to light mode'
@@ -400,7 +372,8 @@ const LoginRegister = () => {
                         animate={{ opacity: 0.8 }}
                         transition={{ delay: 0.6, duration: 0.8 }}
                         sx={{
-                            maxWidth: '100%',
+                            display: { xs: 'none', md: 'block' },
+                            maxWidth: '80%',
                             mx: 'auto',
                         }}
                     >
@@ -689,18 +662,6 @@ const LoginRegister = () => {
                                         }}
                                         required
                                         autoFocus
-                                        sx={{
-                                            mb: 2,
-                                            '& label.Mui-focused': {
-                                                color: 'secondary.main',
-                                            },
-                                            '& .MuiOutlinedInput-root': {
-                                                '&.Mui-focused fieldset': {
-                                                    borderColor:
-                                                        'secondary.main',
-                                                },
-                                            },
-                                        }}
                                     />
 
                                     <TextField
@@ -714,18 +675,6 @@ const LoginRegister = () => {
                                         onChange={(e) =>
                                             handleChange(e, 'signup')
                                         }
-                                        sx={{
-                                            mb: 2,
-                                            '& label.Mui-focused': {
-                                                color: 'secondary.main',
-                                            },
-                                            '& .MuiOutlinedInput-root': {
-                                                '&.Mui-focused fieldset': {
-                                                    borderColor:
-                                                        'secondary.main',
-                                                },
-                                            },
-                                        }}
                                         error={
                                             formSubmitted &&
                                             !!formErrors.signup.email
@@ -747,18 +696,6 @@ const LoginRegister = () => {
                                         type={
                                             showPassword ? 'text' : 'password'
                                         }
-                                        sx={{
-                                            mb: 2,
-                                            '& label.Mui-focused': {
-                                                color: 'secondary.main',
-                                            },
-                                            '& .MuiOutlinedInput-root': {
-                                                '&.Mui-focused fieldset': {
-                                                    borderColor:
-                                                        'secondary.main',
-                                                },
-                                            },
-                                        }}
                                         margin="normal"
                                         name="password"
                                         value={signupData.password}
@@ -803,18 +740,6 @@ const LoginRegister = () => {
                                         type={
                                             showPassword ? 'text' : 'password'
                                         }
-                                        sx={{
-                                            mb: 2,
-                                            '& label.Mui-focused': {
-                                                color: 'secondary.main',
-                                            },
-                                            '& .MuiOutlinedInput-root': {
-                                                '&.Mui-focused fieldset': {
-                                                    borderColor:
-                                                        'secondary.main',
-                                                },
-                                            },
-                                        }}
                                         margin="normal"
                                         name="confirmPassword"
                                         value={signupData.confirmPassword}
@@ -879,7 +804,6 @@ const LoginRegister = () => {
                     </Box>
                 </Box>
             </Box>
-            <ToastContainer />
         </Box>
     )
 }
