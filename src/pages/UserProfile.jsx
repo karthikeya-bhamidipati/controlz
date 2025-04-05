@@ -6,34 +6,37 @@ import {
     TextField,
     Button,
     Grid,
-    Avatar,
     Divider,
     CircularProgress,
     Dialog,
     DialogTitle,
     DialogContent,
     DialogActions,
-    Snackbar,
-    Alert,
     Card,
     CardContent,
+    Avatar,
 } from '@mui/material'
 import { Save, Lock } from '@mui/icons-material'
 import axios from 'axios'
 import NavBar from './NavBar'
+import { getUserRoute, changePasswordRoute } from '../utils/ApiRoutes'
+import { jwtDecode } from 'jwt-decode'
+import { toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 const UserProfile = () => {
+    axios.interceptors.request.use((config) => {
+        const token = localStorage.getItem('token')
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`
+        }
+        return config
+    })
     // State management
     const [profile, setProfile] = useState({
         username: '',
         email: '',
         role: '',
-        firstName: '',
-        lastName: '',
-        phoneNumber: '',
-        department: '',
-        lastLogin: '',
-        joinDate: '',
     })
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -43,29 +46,29 @@ const UserProfile = () => {
         newPassword: '',
         confirmPassword: '',
     })
-    const [notification, setNotification] = useState({
-        open: false,
-        message: '',
-        severity: 'success',
-    })
     const [errors, setErrors] = useState({})
+
+    // Extract username from token
+    const token = localStorage.getItem('token')
+    let username = ''
+    if (token) {
+        username = jwtDecode(token).sub
+    }
 
     // Fetch user profile data on component mount
     useEffect(() => {
         fetchUserProfile()
     }, [])
 
-    // API calls
     const fetchUserProfile = async () => {
         try {
             setLoading(true)
-            // Replace with your actual API endpoint
-            const response = await axios.get('/api/user/profile')
+            const response = await axios.get(`${getUserRoute}${username}`)
             setProfile(response.data)
             setLoading(false)
         } catch (error) {
             console.error('Error fetching user profile:', error)
-            showNotification('Error loading profile data', 'error')
+            toast.error('Error loading profile data')
             setLoading(false)
         }
     }
@@ -73,13 +76,22 @@ const UserProfile = () => {
     const updateProfile = async () => {
         try {
             setSaving(true)
-            // Replace with your actual API endpoint
-            await axios.put('/api/user/profile', profile)
-            showNotification('Profile updated successfully', 'success')
+            const response = await axios.put(
+                `${getUserRoute}update/${username}`,
+                {
+                    newUsername: profile.username,
+                    email: profile.email,
+                }
+            )
+            console.log(response)
+            localStorage.setItem('token', response.data)
+            username = jwtDecode(response.data).sub
+            setProfile((prev) => ({ ...prev, username }))
+            toast.success('Profile updated successfully')
             setSaving(false)
         } catch (error) {
             console.error('Error updating profile:', error)
-            showNotification('Error updating profile', 'error')
+            toast.error('Error updating profile')
             setSaving(false)
         }
     }
@@ -103,12 +115,11 @@ const UserProfile = () => {
         }
 
         try {
-            // Replace with your actual API endpoint
-            await axios.post('/api/user/change-password', {
-                currentPassword: passwordData.currentPassword,
+            const newToken = await axios.post(changePasswordRoute, {
+                username: username,
+                oldPassword: passwordData.currentPassword,
                 newPassword: passwordData.newPassword,
             })
-
             setOpenPasswordDialog(false)
             setPasswordData({
                 currentPassword: '',
@@ -116,14 +127,16 @@ const UserProfile = () => {
                 confirmPassword: '',
             })
             setErrors({})
-            showNotification('Password changed successfully', 'success')
+            toast.success('Password changed successfully')
+            localStorage.setItem('token', newToken.data.token)
         } catch (error) {
             console.error('Error changing password:', error)
-
             if (error.response && error.response.status === 401) {
                 setErrors({ currentPassword: 'Current password is incorrect' })
             } else {
-                showNotification('Error changing password', 'error')
+                toast.error(
+                    error.response.data.message || 'Error changing password'
+                )
             }
         }
     }
@@ -137,29 +150,9 @@ const UserProfile = () => {
     const handlePasswordChange = (e) => {
         const { name, value } = e.target
         setPasswordData((prev) => ({ ...prev, [name]: value }))
-
-        // Clear errors when typing
         if (errors[name]) {
             setErrors((prev) => ({ ...prev, [name]: '' }))
         }
-    }
-
-    const showNotification = (message, severity) => {
-        setNotification({ open: true, message, severity })
-    }
-
-    const handleCloseNotification = () => {
-        setNotification({ ...notification, open: false })
-    }
-
-    // Format date for display
-    const formatDate = (dateString) => {
-        if (!dateString) return 'N/A'
-        return new Date(dateString).toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        })
     }
 
     if (loading) {
@@ -177,7 +170,6 @@ const UserProfile = () => {
                 <Typography variant="h4" gutterBottom sx={{ mb: 4 }}>
                     User Profile
                 </Typography>
-
                 <Grid container spacing={4}>
                     {/* Left column - User info */}
                     <Grid item xs={12} md={8}>
@@ -186,66 +178,13 @@ const UserProfile = () => {
                                 Personal Information
                             </Typography>
                             <Divider sx={{ mb: 3 }} />
-
                             <Grid container spacing={2}>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="First Name"
-                                        name="firstName"
-                                        value={profile.firstName || ''}
-                                        onChange={handleProfileChange}
-                                        margin="normal"
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="Last Name"
-                                        name="lastName"
-                                        value={profile.lastName || ''}
-                                        onChange={handleProfileChange}
-                                        margin="normal"
-                                    />
-                                </Grid>
-                                <Grid item xs={12}>
-                                    <TextField
-                                        fullWidth
-                                        label="Email"
-                                        name="email"
-                                        value={profile.email || ''}
-                                        onChange={handleProfileChange}
-                                        margin="normal"
-                                        type="email"
-                                    />
-                                </Grid>
                                 <Grid item xs={12} sm={6}>
                                     <TextField
                                         fullWidth
                                         label="Username"
                                         name="username"
                                         value={profile.username || ''}
-                                        onChange={handleProfileChange}
-                                        margin="normal"
-                                        disabled
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="Phone Number"
-                                        name="phoneNumber"
-                                        value={profile.phoneNumber || ''}
-                                        onChange={handleProfileChange}
-                                        margin="normal"
-                                    />
-                                </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <TextField
-                                        fullWidth
-                                        label="Department"
-                                        name="department"
-                                        value={profile.department || ''}
                                         onChange={handleProfileChange}
                                         margin="normal"
                                     />
@@ -259,8 +198,18 @@ const UserProfile = () => {
                                         disabled
                                     />
                                 </Grid>
+                                <Grid item xs={12}>
+                                    <TextField
+                                        fullWidth
+                                        label="Email"
+                                        name="email"
+                                        value={profile.email || ''}
+                                        onChange={handleProfileChange}
+                                        margin="normal"
+                                        type="email"
+                                    />
+                                </Grid>
                             </Grid>
-
                             <Box
                                 sx={{
                                     mt: 3,
@@ -285,7 +234,6 @@ const UserProfile = () => {
                                 Security
                             </Typography>
                             <Divider sx={{ mb: 3 }} />
-
                             <Box
                                 sx={{
                                     display: 'flex',
@@ -299,17 +247,6 @@ const UserProfile = () => {
                                         sx={{ fontWeight: 'medium' }}
                                     >
                                         Password
-                                    </Typography>
-                                    <Typography
-                                        variant="body2"
-                                        color="text.secondary"
-                                    >
-                                        Last changed:{' '}
-                                        {profile.passwordLastChanged
-                                            ? formatDate(
-                                                  profile.passwordLastChanged
-                                              )
-                                            : 'N/A'}
                                     </Typography>
                                 </Box>
                                 <Button
@@ -326,10 +263,25 @@ const UserProfile = () => {
                     {/* Right column - Profile summary */}
                     <Grid item xs={12} md={4}>
                         <Card sx={{ mb: 3 }}>
-                            <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                                <Typography variant="h5" gutterBottom>
-                                    {profile.firstName} {profile.lastName}
-                                </Typography>
+                            <CardContent
+                                sx={{
+                                    textAlign: 'center',
+                                    p: 3,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                }}
+                            >
+                                <Avatar
+                                    sx={{
+                                        bgcolor: 'orange',
+                                        color: 'white',
+                                        width: 56,
+                                        height: 56,
+                                    }}
+                                >
+                                    {username[0]}
+                                </Avatar>
                                 <Typography
                                     variant="body1"
                                     color="text.secondary"
@@ -343,51 +295,6 @@ const UserProfile = () => {
                                 >
                                     {profile.email}
                                 </Typography>
-                            </CardContent>
-                        </Card>
-
-                        <Card>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                    Account Information
-                                </Typography>
-                                <Divider sx={{ mb: 2 }} />
-
-                                <Box sx={{ mb: 1 }}>
-                                    <Typography
-                                        variant="body2"
-                                        color="text.secondary"
-                                    >
-                                        Member Since
-                                    </Typography>
-                                    <Typography variant="body1">
-                                        {formatDate(profile.joinDate)}
-                                    </Typography>
-                                </Box>
-
-                                <Box sx={{ mb: 1 }}>
-                                    <Typography
-                                        variant="body2"
-                                        color="text.secondary"
-                                    >
-                                        Last Login
-                                    </Typography>
-                                    <Typography variant="body1">
-                                        {formatDate(profile.lastLogin)}
-                                    </Typography>
-                                </Box>
-
-                                <Box>
-                                    <Typography
-                                        variant="body2"
-                                        color="text.secondary"
-                                    >
-                                        Department
-                                    </Typography>
-                                    <Typography variant="body1">
-                                        {profile.department || 'Not specified'}
-                                    </Typography>
-                                </Box>
                             </CardContent>
                         </Card>
                     </Grid>
@@ -445,21 +352,6 @@ const UserProfile = () => {
                         </Button>
                     </DialogActions>
                 </Dialog>
-
-                {/* Notifications */}
-                <Snackbar
-                    open={notification.open}
-                    autoHideDuration={6000}
-                    onClose={handleCloseNotification}
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                >
-                    <Alert
-                        onClose={handleCloseNotification}
-                        severity={notification.severity}
-                    >
-                        {notification.message}
-                    </Alert>
-                </Snackbar>
             </Box>
         </>
     )

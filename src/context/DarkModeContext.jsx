@@ -1,10 +1,13 @@
-import { createContext, useState, useMemo, useContext } from "react";
+import { createContext, useMemo, useContext } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { toggleDarkMode } from "../redux/darkModeSlice"; 
 import { createTheme, ThemeProvider, CssBaseline } from "@mui/material";
 
 const DarkModeContext = createContext();
 
 export const DarkModeProvider = ({ children }) => {
-  const [darkMode, setDarkMode] = useState(false);
+  const darkMode = useSelector((state) => state.darkMode.darkMode);
+  const dispatch = useDispatch();
 
   const theme = useMemo(
     () =>
@@ -21,7 +24,7 @@ export const DarkModeProvider = ({ children }) => {
   );
 
   return (
-    <DarkModeContext.Provider value={{ darkMode, setDarkMode }}>
+    <DarkModeContext.Provider value={{ darkMode, toggleDarkMode: () => dispatch(toggleDarkMode()) }}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         {children}
