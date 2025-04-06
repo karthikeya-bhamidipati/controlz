@@ -329,6 +329,7 @@ const UserProfile = () => {
             toast.error(`Failed to download ${type}`)
         }
     }
+    const isAdmin = profile.role === 'ADMIN'
 
     // UI handlers
     const handleProfileChange = (e) => {
@@ -447,58 +448,60 @@ const UserProfile = () => {
                                 </Button>
                             </Box>
                         </Paper>
-                        <Card sx={{ mt: 3 }}>
-                            <CardContent>
-                                <Typography variant="h6" gutterBottom>
-                                    Submit Activities
-                                </Typography>
-                                <TextField
-                                    fullWidth
-                                    multiline
-                                    rows={4}
-                                    variant="outlined"
-                                    placeholder="Enter activities in JSON or YAML format"
-                                    value={activitiesInput}
-                                    onChange={(e) =>
-                                        setActivitiesInput(e.target.value)
-                                    }
-                                    sx={{ mb: 2 }}
-                                />
-                                <input
-                                    key={fileUploadKey}
-                                    accept=".json,.yaml,.yml,.csv"
-                                    style={{ display: 'none' }}
-                                    id="activities-upload"
-                                    type="file"
-                                    onChange={handleFileUpload}
-                                />
-                                <label htmlFor="activities-upload">
-                                    <Button
-                                        variant="outlined"
-                                        component="span"
-                                        startIcon={<Upload />}
+                        {isAdmin && (
+                            <Card sx={{ mt: 3 }}>
+                                <CardContent>
+                                    <Typography variant="h6" gutterBottom>
+                                        Submit Activities
+                                    </Typography>
+                                    <TextField
                                         fullWidth
+                                        multiline
+                                        rows={4}
+                                        variant="outlined"
+                                        placeholder="Enter activities in JSON or YAML format"
+                                        value={activitiesInput}
+                                        onChange={(e) =>
+                                            setActivitiesInput(e.target.value)
+                                        }
                                         sx={{ mb: 2 }}
+                                    />
+                                    <input
+                                        key={fileUploadKey}
+                                        accept=".json,.yaml,.yml,.csv"
+                                        style={{ display: 'none' }}
+                                        id="activities-upload"
+                                        type="file"
+                                        onChange={handleFileUpload}
+                                    />
+                                    <label htmlFor="activities-upload">
+                                        <Button
+                                            variant="outlined"
+                                            component="span"
+                                            startIcon={<Upload />}
+                                            fullWidth
+                                            sx={{ mb: 2 }}
+                                        >
+                                            Upload File
+                                        </Button>
+                                    </label>
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        fullWidth
+                                        onClick={handleSubmitActivities}
+                                        disabled={
+                                            isSubmittingActivities ||
+                                            !activitiesInput.trim()
+                                        }
                                     >
-                                        Upload File
+                                        {isSubmittingActivities
+                                            ? 'Submitting...'
+                                            : 'Submit Activities'}
                                     </Button>
-                                </label>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    fullWidth
-                                    onClick={handleSubmitActivities}
-                                    disabled={
-                                        isSubmittingActivities ||
-                                        !activitiesInput.trim()
-                                    }
-                                >
-                                    {isSubmittingActivities
-                                        ? 'Submitting...'
-                                        : 'Submit Activities'}
-                                </Button>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        )}
                     </Grid>
 
                     {/* Right column - Profile summary */}
@@ -541,7 +544,7 @@ const UserProfile = () => {
                         <Card>
                             <CardContent>
                                 <Typography variant="h6" gutterBottom>
-                                    Download Your Data
+                                    Download the site Data
                                 </Typography>
 
                                 {/* Users */}

@@ -50,6 +50,11 @@ const LoginRegister = () => {
     const [formSubmitted, setFormSubmitted] = useState(false)
 
     const navigate = useNavigate()
+    useEffect(() => {
+        if (localStorage.getItem('token')) {
+            navigate('/')
+        }
+    }, [navigate])
 
     const handleChange = (e, form) => {
         const { name, value } = e.target
