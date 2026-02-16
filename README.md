@@ -1,5 +1,8 @@
 # ControlZ - IoT-based Hostel Automation System
 
+![Status](https://img.shields.io/badge/Status-Active-success)
+![Stack](https://img.shields.io/badge/Stack-React_|_MUI-blue)
+
 ControlZ is an advanced IoT-based hostel automation system that enables remote control of electrical appliances such as fans and lights. This system integrates a **React** frontend, a **Spring Boot** backend, and an **MQTT**-based communication layer to interact with an **Arduino** microcontroller. ControlZ offers user authentication, real-time device monitoring, and statistical tracking of power usage.
 
 ## Table of Contents
@@ -70,6 +73,7 @@ Frontend (React) <--> Backend (Spring Boot) <--> MQTT Broker <--> Arduino (Hardw
 - MongoDB (local or cloud instance)
 - Mosquitto MQTT Broker
 - Arduino IDE (for hardware programming)
+- Arduino uno board
 
 ### Steps
 #### 1️⃣ Clone the Repository
@@ -79,19 +83,24 @@ cd controlz
 ```
 #### 2️⃣ Backend Setup (Spring Boot)
 ```sh
-cd backend
+git clone https://github.com/padmanaabhasayee/contrlz-backend.git
+cd contrlz-backend
 mvn clean install
 mvn spring-boot:run
 ```
 #### 3️⃣ Frontend Setup (React)
 ```sh
-cd frontend
+cd src
 npm install
 npm start
 ```
-#### 4️⃣ Configure MQTT Broker (Mosquitto)
+#### 4️⃣ Configure MQTT Broker (Mosquitto) and flash the code into aurdino uno
 - Install Mosquitto and start the broker.
 - Ensure Arduino is connected to the MQTT broker.
+```sh
+git clone https://github.com/DGarg00/contrlz-hardware.git
+cd Final_ESP01_code
+```
 
 ---
 
